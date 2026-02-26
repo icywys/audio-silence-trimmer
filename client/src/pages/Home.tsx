@@ -594,6 +594,44 @@ export default function Home() {
                   onChange={setShortenedSilenceDuration}
                   description="每个静音段缩短到此时长（默认 0.5s = 500ms AU 标准）"
                 />
+                
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="rounded-lg p-3 flex flex-col gap-2"
+                  style={{ background: "#F4F4F2" }}
+                >
+                  <div className="flex justify-between items-baseline">
+                    <span
+                      className="text-xs font-medium tracking-wide uppercase"
+                      style={{ color: "#9B9B95", fontFamily: "'IBM Plex Sans', sans-serif" }}
+                    >
+                      导出后时长
+                    </span>
+                    <span
+                      className="text-sm font-bold"
+                      style={{ color: "#2D4EF5", fontFamily: "'Playfair Display', serif" }}
+                    >
+                      {(() => {
+                        const effectiveDuration = result?.effectiveDuration ?? 0;
+                        const silenceCount = Math.max(0, (result?.activeSegments.length ?? 1) - 1);
+                        const totalExportDuration = effectiveDuration + (silenceCount * shortenedSilenceDuration);
+                        const hours = Math.floor(totalExportDuration / 3600);
+                        const minutes = Math.floor((totalExportDuration % 3600) / 60);
+                        const secs = Math.floor(totalExportDuration % 60);
+                        const parts = [];
+                        if (hours > 0) parts.push(`${hours}h`);
+                        if (minutes > 0) parts.push(`${minutes}m`);
+                        if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
+                        return parts.join(' ');
+                      })()}
+                    </span>
+                  </div>
+                  <div className="text-xs" style={{ color: "#B0B0AA", fontFamily: "'IBM Plex Sans', sans-serif" }}>
+                    {effectiveCountUp} + {result?.silenceSegments.length ?? 0} 个静音段 × {shortenedSilenceDuration.toFixed(2)}s
+                  </div>
+                </motion.div>
+                
                 <Button
                   onClick={handleTrimAndExport}
                   disabled={trimming}
