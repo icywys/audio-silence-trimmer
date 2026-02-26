@@ -9,6 +9,7 @@
 import { useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Slider } from "@/components/ui/slider";
+import { Button } from "@/components/ui/button";
 import { WaveformVisualizer } from "@/components/WaveformVisualizer";
 import { useCountUpTime } from "@/hooks/useCountUpTime";
 import {
@@ -19,6 +20,7 @@ import {
   type AudioAnalysisResult,
   type AnalysisParams,
 } from "@/lib/audioAnalyzer";
+import { createShortenedAudio, downloadAudioBuffer } from "@/lib/audioTrimmer";
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
@@ -273,7 +275,7 @@ function UploadZone({
         onChange={handleChange}
       />
       <img
-        src="https://private-us-east-1.manuscdn.com/sessionFile/6DytyFBPCtN5QMCFn5Cp8v/sandbox/NI3JXE06UGoSrz8dviebW7_1772123973510_na1fn_YXVkaW8tdXBsb2FkLWljb24.png?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvNkR5dHlGQlBDdE41UU1DRm41Q3A4di9zYW5kYm94L05JM0pYRTA2VUdvU3J6OGR2aWViVzdfMTc3MjEyMzk3MzUxMF9uYTFmbl9ZWFZrYVc4dGRYQnNiMkZrTFdsamIyNC5wbmc~eC1vc3MtcHJvY2Vzcz1pbWFnZS9yZXNpemUsd18xOTIwLGhfMTkyMC9mb3JtYXQsd2VicC9xdWFsaXR5LHFfODAiLCJDb25kaXRpb24iOnsiRGF0ZUxlc3NUaGFuIjp7IkFXUzpFcG9jaFRpbWUiOjE3OTg3NjE2MDB9fX1dfQ__&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=GUVINHOThd8Sc-W~877xWqPMlOzxXd0pPgbnpDoY7bq-PlSy0DFD3PaXzd8~yDLzJX9uaABNrtmnFRGh5n8x3gnOwJ0-pjXF2MqDs3E-YCAF~jky~TcRLeMk~U1J6nD~6DAuqUsaJWX7piwCQQ0a8iToZwWLentaahRBPaauIC1DQD1TnvEyzCTAeHVGbPKlYbb-QN21soJC~bVXVc3bk5tiybNkI3lS-pcJPw0RNUzeo3MCwJnxtG8x4vbyt65RZvrt8oEUtVAOLvtr09IB1pFDO26jrDv5afYXmToeFVo4HcQoCnzm8Hs60sDLvWMZIBt~gwJb0BgOLgUI1pp5kQ__"
+        src="https://private-us-east-1.manuscdn.com/sessionFile/6DytyFBPCtN5QMCFn5Cp8v/sandbox/NI3JXE06UGoSrz8dviebW7_1772123973510_na1fn_YXVkaW8tdXBsb2FkLWljb24.png?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvNkR5dHlGQlBDdE41UU1DRm41Q3A4di9zYW5kYm94L05JM0pYRTA2VUdvU3J6OGR2aWViVzdfMTc3MjEyMzk3MzUxMF9uYTFmbl9ZWVZrYVc4dGRYQnNiMkZrTFdsamIyNC5wbmc~eC1vc3MtcHJvY2Vzcz1pbWFnZS9yZXNpemUsd18xOTIwLGhfMTkyMC9mb3JtYXQsd2VicC9xdWFsaXR5LHFfODAiLCJDb25kaXRpb24iOnsiRGF0ZUxlc3NUaGFuIjp7IkFXUzpFcG9jaFRpbWUiOjE3OTg3NjE2MDB9fX1dfQ__&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=GUVINHOThd8Sc-W~877xWqPMlOzxXd0pPgbnpDoY7bq-PlSy0DFD3PaXzd8~yDLzJX9uaABNrtmnFRGh5n8x3gnOwJ0-pjXF2MqDs3E-YCAF~jky~TcRLeMk~U1J6nD~6DAuqUsaJWX7piwCQQ0a8iToZwWLentaahRBPaauIC1DQD1TnvEyzCTAeHVGbPKlYbb-QN21soJC~bVXVc3bk5tiybNkI3lS-pcJPw0RNUzeo3MCwJnxtG8x4vbyt65RZvrt8oEUtVAOLvtr09IB1pFDO26jrDv5afYXmToeFVo4HcQoCnzm8Hs60sDLvWMZIBt~gwJb0BgOLgUI1pp5kQ__"
         alt="upload"
         className="w-12 h-12 opacity-60"
         style={{ filter: isDragging ? "none" : "grayscale(0.3)" }}
@@ -361,6 +363,9 @@ export default function Home() {
   const [isDragging, setIsDragging] = useState(false);
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
+  const [trimming, setTrimming] = useState(false);
+  const [silenceCompressionRatio, setSilenceCompressionRatio] = useState(0.1);
 
   const effectiveCountUp = useCountUpTime(result?.effectiveDuration ?? 0, 1200);
   const silenceCountUp = useCountUpTime(result?.silenceDuration ?? 0, 1200);
@@ -371,6 +376,13 @@ export default function Home() {
     setProgress(0);
     setError(null);
     try {
+      // Decode audio for later trimming
+      const audioContext = new AudioContext();
+      const arrayBuffer = await file.arrayBuffer();
+      const decoded = await audioContext.decodeAudioData(arrayBuffer);
+      setAudioBuffer(decoded);
+      await audioContext.close();
+
       const res = await analyzeAudio(file, analysisParams, setProgress);
       setResult(res);
     } catch (err) {
@@ -385,6 +397,7 @@ export default function Home() {
     (file: File) => {
       setCurrentFile(file);
       setResult(null);
+      setAudioBuffer(null);
       runAnalysis(file, params);
     },
     [params, runAnalysis]
@@ -400,6 +413,28 @@ export default function Home() {
     },
     [params, currentFile, runAnalysis]
   );
+
+  const handleTrimAndExport = useCallback(async () => {
+    if (!result || !audioBuffer) return;
+    setTrimming(true);
+    try {
+      const trimmed = await createShortenedAudio(
+        audioBuffer,
+        result,
+        { silenceCompressionRatio },
+        setProgress
+      );
+      const filename = currentFile
+        ? `${currentFile.name.replace(/\.[^.]+$/, '')}_trimmed.wav`
+        : "audio_trimmed.wav";
+      downloadAudioBuffer(trimmed, filename);
+    } catch (err) {
+      setError("导出失败，请重试。");
+      console.error(err);
+    } finally {
+      setTrimming(false);
+    }
+  }, [result, audioBuffer, silenceCompressionRatio, currentFile]);
 
   return (
     <div
@@ -432,7 +467,7 @@ export default function Home() {
                 音频有效时长计算器
               </h1>
               <p className="text-xs" style={{ color: "#9B9B95" }}>
-                Audio Silence Analyzer
+                Audio Silence Trimmer
               </p>
             </div>
           </div>
@@ -536,6 +571,46 @@ export default function Home() {
             {/* Divider */}
             <div style={{ height: "1px", background: "#E8E8E4" }} />
 
+            {/* Trimming Options */}
+            {result && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex flex-col gap-3"
+              >
+                <h2
+                  className="text-xs font-medium tracking-widest uppercase"
+                  style={{ color: "#9B9B95" }}
+                >
+                  缩短静音
+                </h2>
+                <ParamControl
+                  label="静音保留比例"
+                  value={silenceCompressionRatio}
+                  unit="%"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  onChange={setSilenceCompressionRatio}
+                  description="0% = 删除所有静音，100% = 保留原样"
+                />
+                <Button
+                  onClick={handleTrimAndExport}
+                  disabled={trimming}
+                  className="w-full mt-2"
+                  style={{
+                    background: trimming ? "#D4D4D0" : "#2D4EF5",
+                    color: "#FAFAF8",
+                  }}
+                >
+                  {trimming ? "处理中..." : "导出缩短后的音频"}
+                </Button>
+              </motion.div>
+            )}
+
+            {/* Divider */}
+            {result && <div style={{ height: "1px", background: "#E8E8E4" }} />}
+
             {/* File info */}
             {result && (
               <motion.div
@@ -574,7 +649,7 @@ export default function Home() {
 
             {/* Analyzing state */}
             <AnimatePresence>
-              {analyzing && (
+              {(analyzing || trimming) && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -585,7 +660,7 @@ export default function Home() {
                     className="text-xs tracking-widest uppercase"
                     style={{ color: "#9B9B95" }}
                   >
-                    正在分析
+                    {trimming ? "处理中" : "正在分析"}
                   </div>
                   <div className="w-48 rounded-full overflow-hidden" style={{ height: "2px", background: "#E8E8E4" }}>
                     <motion.div
