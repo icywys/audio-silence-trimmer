@@ -878,6 +878,65 @@ export default function Home() {
                         </tbody>
                       </table>
                     </div>
+                    
+                    {/* Summary row */}
+                    {(() => {
+                      let totalEffective = 0;
+                      let totalSilence = 0;
+                      let totalDuration = 0;
+                      let totalSilenceSegments = 0;
+                      
+                      Array.from(batchResults.values()).forEach(res => {
+                        totalEffective += res.effectiveDuration;
+                        totalSilence += res.silenceDuration;
+                        totalDuration += res.totalDuration;
+                        totalSilenceSegments += res.silenceSegments.length;
+                      });
+                      
+                      const formatTime = (seconds: number) => {
+                        const hours = Math.floor(seconds / 3600);
+                        const minutes = Math.floor((seconds % 3600) / 60);
+                        const secs = Math.floor(seconds % 60);
+                        const parts = [];
+                        if (hours > 0) parts.push(`${hours}h`);
+                        if (minutes > 0) parts.push(`${minutes}m`);
+                        if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
+                        return parts.join(' ');
+                      };
+                      
+                      const effectiveStr = formatTime(totalEffective);
+                      const silenceStr = formatTime(totalSilence);
+                      const totalStr = formatTime(totalDuration);
+                      const ratio = totalDuration > 0 ? (totalEffective / totalDuration) * 100 : 0;
+                      
+                      return (
+                        <div className="mt-4 p-4 rounded-lg" style={{ background: "#F4F4F2" }}>
+                          <div className="grid grid-cols-5 gap-4 text-xs font-semibold">
+                            <div style={{ color: "#9B9B95" }}>总计</div>
+                            <div className="text-right" style={{ color: "#2D4EF5" }}>{effectiveStr}</div>
+                            <div className="text-right" style={{ color: "#9B9B95" }}>{silenceStr}</div>
+                            <div className="text-right" style={{ color: "#9B9B95" }}>{totalStr}</div>
+                            <div className="text-right" style={{ color: "#9B9B95" }}>{ratio.toFixed(1)}%</div>
+                          </div>
+                          
+                          {/* Export duration preview */}
+                          <div className="mt-6 pt-4 border-t" style={{ borderColor: "#E8E8E4" }}>
+                            <div className="flex justify-between items-center mb-3">
+                              <span className="text-xs font-medium tracking-wide uppercase" style={{ color: "#9B9B95" }}>合并后导出时长</span>
+                              <span className="text-xs" style={{ color: "#9B9B95" }}>缩短参数: {shortenedSilenceDuration.toFixed(3)}s × {totalSilenceSegments} 段</span>
+                            </div>
+                            <div className="font-bold leading-none" style={{
+                              fontFamily: "'Playfair Display', serif",
+                              fontSize: "clamp(2rem, 4vw, 3rem)",
+                              color: "#2D4EF5",
+                              letterSpacing: "-0.02em",
+                            }}>
+                              {formatTime(totalEffective + (totalSilenceSegments * shortenedSilenceDuration))}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </motion.div>
               )}
