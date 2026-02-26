@@ -365,7 +365,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
   const [trimming, setTrimming] = useState(false);
-  const [silenceCompressionRatio, setSilenceCompressionRatio] = useState(0.1);
+  const [shortenedSilenceDuration, setShortenedSilenceDuration] = useState(0.5);
 
   const effectiveCountUp = useCountUpTime(result?.effectiveDuration ?? 0, 1200);
   const silenceCountUp = useCountUpTime(result?.silenceDuration ?? 0, 1200);
@@ -421,7 +421,7 @@ export default function Home() {
       const trimmed = await createShortenedAudio(
         audioBuffer,
         result,
-        { silenceCompressionRatio },
+        { shortenedSilenceDuration },
         setProgress
       );
       const filename = currentFile
@@ -434,7 +434,7 @@ export default function Home() {
     } finally {
       setTrimming(false);
     }
-  }, [result, audioBuffer, silenceCompressionRatio, currentFile]);
+  }, [result, audioBuffer, shortenedSilenceDuration, currentFile]);
 
   return (
     <div
@@ -585,14 +585,14 @@ export default function Home() {
                   缩短静音
                 </h2>
                 <ParamControl
-                  label="静音保留比例"
-                  value={silenceCompressionRatio}
-                  unit="%"
-                  min={0}
-                  max={1}
+                  label="缩短后静音时长"
+                  value={shortenedSilenceDuration}
+                  unit="s"
+                  min={0.1}
+                  max={2}
                   step={0.05}
-                  onChange={setSilenceCompressionRatio}
-                  description="0% = 删除所有静音，100% = 保留原样"
+                  onChange={setShortenedSilenceDuration}
+                  description="每个静音段缩短到此时长（默认 0.5s = 500ms AU 标准）"
                 />
                 <Button
                   onClick={handleTrimAndExport}

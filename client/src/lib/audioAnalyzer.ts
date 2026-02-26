@@ -30,15 +30,15 @@ export interface AudioAnalysisResult {
 }
 
 export interface AnalysisParams {
-  silenceThresholdDb: number;  // e.g. -40 dB
-  minSilenceDuration: number;  // seconds, e.g. 0.3
+  silenceThresholdDb: number;  // e.g. -60 dB (Adobe Audition standard)
+  minSilenceDuration: number;  // seconds, e.g. 0.14 (140ms - AU standard)
   paddingDuration: number;     // seconds to keep around silence edges
 }
 
 export const DEFAULT_PARAMS: AnalysisParams = {
-  silenceThresholdDb: -40,
-  minSilenceDuration: 0.3,
-  paddingDuration: 0.05,
+  silenceThresholdDb: -60,
+  minSilenceDuration: 0.14,
+  paddingDuration: 0,
 };
 
 /**

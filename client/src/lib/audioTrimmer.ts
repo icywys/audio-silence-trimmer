@@ -1,19 +1,19 @@
 /**
  * Audio Trimmer - Shorten Silence Segments
- * Extracts active segments and concatenates them to create a shortened audio
+ * Adobe Audition compatible: each silence segment is shortened to a fixed duration (default 500ms)
  */
 
 import type { AudioAnalysisResult } from "./audioAnalyzer";
 
 export interface TrimmerOptions {
-  silenceCompressionRatio?: number; // 0-1, how much to compress silence (0 = remove, 1 = keep original)
+  shortenedSilenceDuration?: number; // seconds, target duration for each silence segment (e.g. 0.5s = 500ms, AU standard)
   fadeInDuration?: number; // seconds, fade in at segment start
   fadeOutDuration?: number; // seconds, fade out at segment end
 }
 
 /**
- * Create a shortened audio by compressing silence segments
- * Returns an AudioBuffer with silence compressed
+ * Create a shortened audio by replacing each silence segment with fixed duration silence
+ * Adobe Audition compatible approach
  */
 export async function createShortenedAudio(
   audioBuffer: AudioBuffer,
@@ -22,16 +22,8 @@ export async function createShortenedAudio(
   onProgress?: (progress: number) => void
 ): Promise<AudioBuffer> {
   const {
-    silenceCompressionRatio = 0.1, // Keep 10% of silence by default
-    fadeInDuration = 0.01,
-    fadeOutDuration = 0.01,
+    shortenedSilenceDuration = 0.5, // 500ms default (Adobe Audition standard)
   } = options;
-
-  const audioContext = new OfflineAudioContext(
-    audioBuffer.numberOfChannels,
-    audioBuffer.sampleRate * 60 * 60, // Max 1 hour output
-    audioBuffer.sampleRate
-  );
 
   const sampleRate = audioBuffer.sampleRate;
   const inputData: Float32Array[] = [];
@@ -41,67 +33,37 @@ export async function createShortenedAudio(
     inputData[ch] = audioBuffer.getChannelData(ch).slice();
   }
 
-  let outputSampleIndex = 0;
-  let totalInputSamples = audioBuffer.length;
-
-  // Process each active segment
-  for (let segIdx = 0; segIdx < analysisResult.activeSegments.length; segIdx++) {
-    const segment = analysisResult.activeSegments[segIdx];
+  // Calculate output buffer size
+  let outputSampleCount = 0;
+  
+  // Add all active segments
+  for (const segment of analysisResult.activeSegments) {
     const startSample = Math.floor(segment.start * sampleRate);
     const endSample = Math.floor(segment.end * sampleRate);
-    const segmentLength = endSample - startSample;
-
-    onProgress?.((segIdx / analysisResult.activeSegments.length) * 100);
-
-    // Copy active segment samples
-    for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
-      const sourceData = inputData[ch];
-      const targetData = audioContext.createBuffer(
-        audioBuffer.numberOfChannels,
-        segmentLength,
-        sampleRate
-      ).getChannelData(ch);
-
-      for (let i = 0; i < segmentLength; i++) {
-        targetData[i] = sourceData[startSample + i];
-      }
-    }
-
-    outputSampleIndex += segmentLength;
-
-    // Add compressed silence after this segment (except last segment)
-    if (segIdx < analysisResult.activeSegments.length - 1) {
-      const nextSegment = analysisResult.activeSegments[segIdx + 1];
-      const silenceStart = segment.end;
-      const silenceEnd = nextSegment.start;
-      const silenceDuration = silenceEnd - silenceStart;
-
-      // Compress silence
-      const compressedSilenceDuration = silenceDuration * silenceCompressionRatio;
-      const compressedSilenceSamples = Math.floor(compressedSilenceDuration * sampleRate);
-
-      if (compressedSilenceSamples > 0) {
-        outputSampleIndex += compressedSilenceSamples;
-      }
-    }
+    outputSampleCount += (endSample - startSample);
   }
+  
+  // Add shortened silence segments (each becomes shortenedSilenceDuration)
+  const shortenedSilenceSamples = Math.floor(shortenedSilenceDuration * sampleRate);
+  const silenceSegmentCount = Math.max(0, analysisResult.activeSegments.length - 1);
+  outputSampleCount += shortenedSilenceSamples * silenceSegmentCount;
 
-  onProgress?.(100);
-
-  // Create output buffer with calculated length
-  const outputBuffer = audioContext.createBuffer(
-    audioBuffer.numberOfChannels,
-    outputSampleIndex,
-    sampleRate
-  );
+  // Create output buffer
+  const outputBuffer = new AudioBuffer({
+    numberOfChannels: audioBuffer.numberOfChannels,
+    length: outputSampleCount,
+    sampleRate: sampleRate,
+  });
 
   // Copy data to output buffer
-  outputSampleIndex = 0;
+  let outputSampleIndex = 0;
   for (let segIdx = 0; segIdx < analysisResult.activeSegments.length; segIdx++) {
     const segment = analysisResult.activeSegments[segIdx];
     const startSample = Math.floor(segment.start * sampleRate);
     const endSample = Math.floor(segment.end * sampleRate);
     const segmentLength = endSample - startSample;
+
+    onProgress?.((segIdx / analysisResult.activeSegments.length) * 50);
 
     // Copy active segment
     for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
@@ -115,27 +77,21 @@ export async function createShortenedAudio(
 
     outputSampleIndex += segmentLength;
 
-    // Add compressed silence
+    // Add shortened silence after this segment (except last segment)
     if (segIdx < analysisResult.activeSegments.length - 1) {
-      const nextSegment = analysisResult.activeSegments[segIdx + 1];
-      const silenceStart = segment.end;
-      const silenceEnd = nextSegment.start;
-      const silenceDuration = silenceEnd - silenceStart;
-      const compressedSilenceDuration = silenceDuration * silenceCompressionRatio;
-      const compressedSilenceSamples = Math.floor(compressedSilenceDuration * sampleRate);
-
-      // Fill with silence (zeros)
+      // Fill with silence (zeros) for shortenedSilenceDuration
       for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
         const targetData = outputBuffer.getChannelData(ch);
-        for (let i = 0; i < compressedSilenceSamples; i++) {
+        for (let i = 0; i < shortenedSilenceSamples; i++) {
           targetData[outputSampleIndex + i] = 0;
         }
       }
 
-      outputSampleIndex += compressedSilenceSamples;
+      outputSampleIndex += shortenedSilenceSamples;
     }
   }
 
+  onProgress?.(100);
   return outputBuffer;
 }
 
