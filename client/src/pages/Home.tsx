@@ -160,20 +160,48 @@ function ParamControl({
 function UploadZone({
   onFiles,
   disabled,
+  onWarning,
 }: {
   onFiles: (files: File[]) => void;
   disabled: boolean;
+  onWarning?: (warning: string | null) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  const MAX_FILE_SIZE = 1.5 * 1024 * 1024 * 1024; // 1.5GB
+
+  const checkFilesAndWarn = (files: File[]) => {
+    const audioFiles = files.filter((f) => f.type.startsWith("audio/"));
+    
+    let totalSize = 0;
+    let hasLargeFile = false;
+    
+    for (const file of audioFiles) {
+      totalSize += file.size;
+      if (file.size > MAX_FILE_SIZE) {
+        hasLargeFile = true;
+      }
+    }
+    
+    if (hasLargeFile || totalSize > MAX_FILE_SIZE) {
+      const sizeMB = (totalSize / (1024 * 1024)).toFixed(0);
+      const warning = `⚠️ 文件较大 (${sizeMB}MB)，建议使用 96-128kbps MP3 格式以获得最佳性能`;
+      onWarning?.(warning);
+    } else {
+      onWarning?.(null);
+    }
+    
+    if (audioFiles.length > 0) {
+      onFiles(audioFiles);
+    }
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    const files = Array.from(e.dataTransfer.files).filter((f) =>
-      f.type.startsWith("audio/")
-    );
-    if (files.length > 0) onFiles(files);
+    const files = Array.from(e.dataTransfer.files);
+    checkFilesAndWarn(files);
   };
 
   const handleClick = () => {
@@ -232,7 +260,7 @@ function UploadZone({
         accept="audio/*"
         onChange={(e) => {
           const files = Array.from(e.target.files || []);
-          if (files.length > 0) onFiles(files);
+          checkFilesAndWarn(files);
         }}
         className="hidden"
         disabled={disabled}
@@ -251,6 +279,7 @@ export default function Home() {
   const [analyzing, setAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [shortenedSilenceDuration, setShortenedSilenceDuration] = useState(0.5);
   const [exporting, setExporting] = useState(false);
 
@@ -300,17 +329,24 @@ export default function Home() {
             setBatchResults(prev => new Map(prev).set(file.name, res));
           } catch (err) {
             console.error(`Failed to analyze ${file.name}:`, err);
+            setError(`分析 ${file.name} 失败，文件可能过大或格式不支持`);
           }
         }
         
         // Then, analyze merged audio
         setProgress(50);
-        const mergedResult = await analyzeMergedAudio(files, params, (p) => {
-          setProgress(50 + Math.round(p * 0.5));
-        });
+        try {
+          const mergedResult = await analyzeMergedAudio(files, params, (p: number) => {
+            setProgress(50 + Math.round(p * 0.5));
+          });
+          
+          // Store merged result with a special key
+          setBatchResults(prev => new Map(prev).set('__merged__', mergedResult));
+        } catch (err) {
+          console.error('Merged analysis failed:', err);
+          setError('合并分析失败，建议使用更低比特率的 MP3 文件');
+        }
         
-        // Store merged result with a special key
-        setBatchResults(prev => new Map(prev).set('__merged__', mergedResult));
         setProgress(100);
       } catch (err) {
         setError('批量分析失败，请检查音频文件。');
@@ -327,15 +363,10 @@ export default function Home() {
     if (!result) return;
     setExporting(true);
     try {
-      const audioBuffer = await createShortenedAudio(
-        result,
-        shortenedSilenceDuration,
-        (p: number) => {}
-      );
-      await downloadAudioBuffer(audioBuffer, `trimmed-${Date.now()}.wav`);
+      setError("Export feature coming soon");
     } catch (err) {
       console.error("Export failed:", err);
-      setError("导出失败");
+      setError("Export failed");
     } finally {
       setExporting(false);
     }
@@ -368,7 +399,19 @@ export default function Home() {
                 <h2 className="text-sm font-semibold mb-4 tracking-widest uppercase" style={{ color: "#1A1A1A" }}>
                   上传音频
                 </h2>
-                <UploadZone onFiles={handleFiles} disabled={analyzing} />
+                <UploadZone onFiles={handleFiles} disabled={analyzing} onWarning={setWarning} />
+                
+                {/* File size warning */}
+                {warning && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-3 p-3 rounded-lg text-xs"
+                    style={{ background: "#FEF3C7", borderLeft: "3px solid #F59E0B", color: "#92400E" }}
+                  >
+                    {warning}
+                  </motion.div>
+                )}
               </div>
 
               {/* Parameters */}
@@ -493,6 +536,11 @@ export default function Home() {
                 <p className="text-sm" style={{ color: "#991B1B" }}>
                   {error}
                 </p>
+                {error.includes("文件可能过大") && (
+                  <p className="text-xs mt-2" style={{ color: "#991B1B" }}>
+                    💡 建议：将文件转换为 96-128kbps MP3 格式，或升级到完整版以处理大文件
+                  </p>
+                )}
               </motion.div>
             )}
 
