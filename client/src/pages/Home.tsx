@@ -30,12 +30,14 @@ function StatCard({
   unit,
   accent = false,
   sublabel,
+  compact = false,
 }: {
   label: string;
   value: string;
   unit?: string;
   accent?: boolean;
   sublabel?: string;
+  compact?: boolean;
 }) {
   return (
     <motion.div
@@ -45,7 +47,7 @@ function StatCard({
       className="flex flex-col gap-1"
     >
       <span
-        className="text-xs font-medium tracking-widest uppercase"
+        className={compact ? "text-xs font-medium" : "text-xs font-medium tracking-widest uppercase"}
         style={{ color: "#9B9B95", fontFamily: "'IBM Plex Sans', sans-serif" }}
       >
         {label}
@@ -55,7 +57,7 @@ function StatCard({
           className="font-bold leading-none"
           style={{
             fontFamily: "'Playfair Display', serif",
-            fontSize: "clamp(2rem, 4vw, 3.5rem)",
+            fontSize: compact ? "clamp(1rem, 2vw, 1.5rem)" : "clamp(2rem, 4vw, 3.5rem)",
             color: accent ? "#2D4EF5" : "#1A1A1A",
             letterSpacing: "-0.02em",
           }}
@@ -64,7 +66,7 @@ function StatCard({
         </span>
         {unit && (
           <span
-            className="text-sm font-medium"
+            className={compact ? "text-xs" : "text-sm font-medium"}
             style={{ color: "#9B9B95", fontFamily: "'IBM Plex Mono', monospace" }}
           >
             {unit}
@@ -598,35 +600,38 @@ export default function Home() {
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="rounded-lg p-3 flex flex-col gap-2"
+                  className="rounded-lg p-6 flex flex-col gap-3"
                   style={{ background: "#F4F4F2" }}
                 >
-                  <div className="flex justify-between items-baseline">
-                    <span
-                      className="text-xs font-medium tracking-wide uppercase"
-                      style={{ color: "#9B9B95", fontFamily: "'IBM Plex Sans', sans-serif" }}
-                    >
-                      导出后时长
-                    </span>
-                    <span
-                      className="text-sm font-bold"
-                      style={{ color: "#2D4EF5", fontFamily: "'Playfair Display', serif" }}
-                    >
-                      {(() => {
-                        const effectiveDuration = result?.effectiveDuration ?? 0;
-                        const silenceCount = Math.max(0, (result?.activeSegments.length ?? 1) - 1);
-                        const totalExportDuration = effectiveDuration + (silenceCount * shortenedSilenceDuration);
-                        const hours = Math.floor(totalExportDuration / 3600);
-                        const minutes = Math.floor((totalExportDuration % 3600) / 60);
-                        const secs = Math.floor(totalExportDuration % 60);
-                        const parts = [];
-                        if (hours > 0) parts.push(`${hours}h`);
-                        if (minutes > 0) parts.push(`${minutes}m`);
-                        if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
-                        return parts.join(' ');
-                      })()}
-                    </span>
-                  </div>
+                  <span
+                    className="text-xs font-medium tracking-wide uppercase"
+                    style={{ color: "#9B9B95", fontFamily: "'IBM Plex Sans', sans-serif" }}
+                  >
+                    导出后时长
+                  </span>
+                  <span
+                    className="font-bold leading-none"
+                    style={{
+                      fontFamily: "'Playfair Display', serif",
+                      fontSize: "clamp(2.5rem, 5vw, 4rem)",
+                      color: "#2D4EF5",
+                      letterSpacing: "-0.02em",
+                    }}
+                  >
+                    {(() => {
+                      const effectiveDuration = result?.effectiveDuration ?? 0;
+                      const silenceCount = Math.max(0, (result?.activeSegments.length ?? 1) - 1);
+                      const totalExportDuration = effectiveDuration + (silenceCount * shortenedSilenceDuration);
+                      const hours = Math.floor(totalExportDuration / 3600);
+                      const minutes = Math.floor((totalExportDuration % 3600) / 60);
+                      const secs = Math.floor(totalExportDuration % 60);
+                      const parts = [];
+                      if (hours > 0) parts.push(`${hours}h`);
+                      if (minutes > 0) parts.push(`${minutes}m`);
+                      if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
+                      return parts.join(' ');
+                    })()}
+                  </span>
                   <div className="text-xs" style={{ color: "#B0B0AA", fontFamily: "'IBM Plex Sans', sans-serif" }}>
                     {effectiveCountUp} + {result?.silenceSegments.length ?? 0} 个静音段 × {shortenedSilenceDuration.toFixed(2)}s
                   </div>
@@ -747,20 +752,23 @@ export default function Home() {
                   animate={{ opacity: 1 }}
                   className="flex flex-col gap-8"
                 >
-                  {/* Main stats */}
-                  <div className="grid grid-cols-3 gap-6">
+                  {/* Main stats - compact mode */}
+                  <div className="grid grid-cols-3 gap-4">
                     <StatCard
                       label="有效时长"
                       value={effectiveCountUp}
                       accent
+                      compact
                     />
                     <StatCard
                       label="静音时长"
                       value={silenceCountUp}
+                      compact
                     />
                     <StatCard
                       label="总时长"
                       value={totalCountUp}
+                      compact
                     />
                   </div>
 
