@@ -14,7 +14,7 @@ import { WaveformVisualizer } from "@/components/WaveformVisualizer";
 import { useCountUpTime } from "@/hooks/useCountUpTime";
 import {
   analyzeAudio,
-  formatDuration,
+  analyzeMergedAudio,
   formatFileSize,
   DEFAULT_PARAMS,
   type AudioAnalysisResult,
@@ -28,396 +28,254 @@ function StatCard({
   label,
   value,
   unit,
-  accent = false,
-  sublabel,
-  compact = false,
+  accent,
+  compact,
 }: {
   label: string;
   value: string;
   unit?: string;
   accent?: boolean;
-  sublabel?: string;
   compact?: boolean;
 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
-      className="flex flex-col gap-1"
+    <div
+      className={`rounded-lg p-4 ${
+        compact ? "bg-white border" : "bg-white/50 backdrop-blur-sm border"
+      }`}
+      style={{ borderColor: "#E8E8E4" }}
     >
-      <span
-        className={compact ? "text-xs font-medium" : "text-xs font-medium tracking-widest uppercase"}
-        style={{ color: "#9B9B95", fontFamily: "'IBM Plex Sans', sans-serif" }}
+      <div
+        className={`text-xs font-medium tracking-widest uppercase mb-2 ${
+          compact ? "" : "mb-3"
+        }`}
+        style={{ color: "#9B9B95" }}
       >
         {label}
-      </span>
-      <div className="flex items-baseline gap-1.5">
-        <span
-          className="font-bold leading-none"
-          style={{
-            fontFamily: "'Playfair Display', serif",
-            fontSize: compact ? "clamp(1rem, 2vw, 1.5rem)" : "clamp(2rem, 4vw, 3.5rem)",
-            color: accent ? "#2D4EF5" : "#1A1A1A",
-            letterSpacing: "-0.02em",
-          }}
-        >
-          {value}
-        </span>
+      </div>
+      <div
+        className={`font-bold leading-none ${
+          compact ? "text-lg" : "text-2xl"
+        }`}
+        style={{
+          fontFamily: "'Playfair Display', serif",
+          color: accent ? "#2D4EF5" : "#1A1A1A",
+          letterSpacing: "-0.02em",
+        }}
+      >
+        {value}
         {unit && (
           <span
-            className={compact ? "text-xs" : "text-sm font-medium"}
-            style={{ color: "#9B9B95", fontFamily: "'IBM Plex Mono', monospace" }}
+            className="text-xs font-normal ml-1"
+            style={{ color: "#9B9B95" }}
           >
             {unit}
           </span>
         )}
       </div>
-      {sublabel && (
-        <span
-          className="text-xs"
-          style={{ color: "#B0B0AA", fontFamily: "'IBM Plex Sans', sans-serif" }}
-        >
-          {sublabel}
-        </span>
-      )}
-    </motion.div>
+    </div>
   );
 }
 
-// ─── Animated Ratio Bar ────────────────────────────────────────────────────────
+// ─── Ratio Bar ────────────────────────────────────────────────────────────────
 
 function RatioBar({ ratio }: { ratio: number }) {
   return (
-    <div className="w-full">
-      <div className="flex justify-between mb-1.5">
-        <span
-          className="text-xs tracking-widest uppercase"
-          style={{ color: "#9B9B95", fontFamily: "'IBM Plex Sans', sans-serif" }}
-        >
-          有效占比
-        </span>
-        <span
-          className="text-xs font-medium"
-          style={{ color: "#2D4EF5", fontFamily: "'IBM Plex Mono', monospace" }}
-        >
-          {(ratio * 100).toFixed(1)}%
-        </span>
-      </div>
-      <div
-        className="w-full rounded-full overflow-hidden"
-        style={{ height: "4px", background: "#E8E8E4" }}
-      >
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${ratio * 100}%` }}
-          transition={{ duration: 1.2, ease: "easeOut", delay: 0.3 }}
-          style={{ height: "100%", background: "#2D4EF5", borderRadius: "9999px" }}
+    <div className="flex items-center gap-3">
+      <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+        <div
+          className="h-full transition-all duration-500"
+          style={{
+            width: `${ratio * 100}%`,
+            background: "#2D4EF5",
+          }}
         />
       </div>
-    </div>
-  );
-}
-
-// ─── Segment Timeline ─────────────────────────────────────────────────────────
-
-function SegmentTimeline({ result }: { result: AudioAnalysisResult }) {
-  return (
-    <div className="w-full">
-      <div className="flex justify-between mb-2">
-        <span
-          className="text-xs tracking-widest uppercase"
-          style={{ color: "#9B9B95", fontFamily: "'IBM Plex Sans', sans-serif" }}
-        >
-          时间轴分布
-        </span>
-        <span
-          className="text-xs"
-          style={{ color: "#9B9B95", fontFamily: "'IBM Plex Mono', monospace" }}
-        >
-          {formatDuration(result.totalDuration)}
-        </span>
-      </div>
-      <div
-        className="w-full flex rounded overflow-hidden"
-        style={{ height: "8px", background: "#E8E8E4" }}
+      <span
+        className="text-xs font-mono"
+        style={{ color: "#9B9B95", minWidth: "40px" }}
       >
-        {result.activeSegments.map((seg, i) => (
-          <motion.div
-            key={`active-${i}`}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: i * 0.05 + 0.4 }}
-            style={{
-              width: `${(seg.duration / result.totalDuration) * 100}%`,
-              background: "#2D4EF5",
-              marginLeft: i === 0 && result.silenceSegments.length > 0 && result.silenceSegments[0].start === 0
-                ? `${(result.silenceSegments[0].duration / result.totalDuration) * 100}%`
-                : undefined,
-            }}
-          />
-        ))}
-      </div>
-      <div className="flex gap-4 mt-2">
-        <div className="flex items-center gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-sm" style={{ background: "#2D4EF5" }} />
-          <span className="text-xs" style={{ color: "#9B9B95", fontFamily: "'IBM Plex Sans', sans-serif" }}>
-            有效音频
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-sm" style={{ background: "#D4D4D0" }} />
-          <span className="text-xs" style={{ color: "#9B9B95", fontFamily: "'IBM Plex Sans', sans-serif" }}>
-            静音段
-          </span>
-        </div>
-      </div>
+        {(ratio * 100).toFixed(1)}%
+      </span>
     </div>
   );
 }
 
-// ─── Silence Segments Table ───────────────────────────────────────────────────
-
-function SilenceTable({ result }: { result: AudioAnalysisResult }) {
-  if (result.silenceSegments.length === 0) {
-    return (
-      <div
-        className="text-sm py-4 text-center"
-        style={{ color: "#9B9B95", fontFamily: "'IBM Plex Sans', sans-serif" }}
-      >
-        未检测到静音段
-      </div>
-    );
-  }
-
-  return (
-    <div className="w-full overflow-auto" style={{ maxHeight: "200px" }}>
-      <table className="w-full text-xs" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-        <thead>
-          <tr style={{ borderBottom: "1px solid #E8E8E4" }}>
-            <th className="text-left py-1.5 pr-4 font-medium" style={{ color: "#9B9B95" }}>#</th>
-            <th className="text-left py-1.5 pr-4 font-medium" style={{ color: "#9B9B95" }}>开始</th>
-            <th className="text-left py-1.5 pr-4 font-medium" style={{ color: "#9B9B95" }}>结束</th>
-            <th className="text-left py-1.5 font-medium" style={{ color: "#9B9B95" }}>时长</th>
-          </tr>
-        </thead>
-        <tbody>
-          {result.silenceSegments.map((seg, i) => (
-            <motion.tr
-              key={i}
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.04 }}
-              style={{ borderBottom: "1px solid #F0F0EC" }}
-            >
-              <td className="py-1.5 pr-4" style={{ color: "#B0B0AA" }}>{i + 1}</td>
-              <td className="py-1.5 pr-4" style={{ color: "#1A1A1A" }}>{seg.start.toFixed(2)}s</td>
-              <td className="py-1.5 pr-4" style={{ color: "#1A1A1A" }}>{seg.end.toFixed(2)}s</td>
-              <td className="py-1.5" style={{ color: "#2D4EF5" }}>{seg.duration.toFixed(2)}s</td>
-            </motion.tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-// ─── Upload Zone ──────────────────────────────────────────────────────────────
-
-function UploadZone({
-  onFile,
-  onFiles,
-  isDragging,
-  setIsDragging,
-}: {
-  onFile?: (file: File) => void;
-  onFiles?: (files: File[]) => void;
-  isDragging: boolean;
-  setIsDragging: (v: boolean) => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragging(false);
-      const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("audio/"));
-      if (files.length > 0) {
-        if (onFiles) {
-          onFiles(files);
-        } else if (onFile && files[0]) {
-          onFile(files[0]);
-        }
-      }
-    },
-    [onFile, onFiles, setIsDragging]
-  );
-
-  const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(e.target.files || []);
-      if (files.length > 0) {
-        if (onFiles) {
-          onFiles(files);
-        } else if (onFile && files[0]) {
-          onFile(files[0]);
-        }
-      }
-    },
-    [onFile, onFiles]
-  );
-
-  return (
-    <motion.div
-      onClick={() => inputRef.current?.click()}
-      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-      onDragLeave={() => setIsDragging(false)}
-      onDrop={handleDrop}
-      animate={{
-        borderColor: isDragging ? "#2D4EF5" : "#D4D4D0",
-        background: isDragging ? "rgba(45,78,245,0.04)" : "transparent",
-      }}
-      transition={{ duration: 0.2 }}
-      className="w-full flex flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed cursor-pointer select-none"
-      style={{ minHeight: "180px", padding: "2rem" }}
-    >
-      <input
-        ref={inputRef}
-        type="file"
-        accept="audio/*"
-        multiple
-        className="hidden"
-        onChange={handleChange}
-      />
-      <img
-        src="https://private-us-east-1.manuscdn.com/sessionFile/6DytyFBPCtN5QMCFn5Cp8v/sandbox/NI3JXE06UGoSrz8dviebW7_1772123973510_na1fn_YXVkaW8tdXBsb2FkLWljb24.png?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvNkR5dHlGQlBDdE41UU1DRm41Q3A4di9zYW5kYm94L05JM0pYRTA2VUdvU3J6OGR2aWViVzdfMTc3MjEyMzk3MzUxMF9uYTFmbl9ZWVZrYVc4dGRYQnNiMkZrTFdsamIyNC5wbmc~eC1vc3MtcHJvY2Vzcz1pbWFnZS9yZXNpemUsd18xOTIwLGhfMTkyMC9mb3JtYXQsd2VicC9xdWFsaXR5LHFfODAiLCJDb25kaXRpb24iOnsiRGF0ZUxlc3NUaGFuIjp7IkFXUzpFcG9jaFRpbWUiOjE3OTg3NjE2MDB9fX1dfQ__&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=GUVINHOThd8Sc-W~877xWqPMlOzxXd0pPgbnpDoY7bq-PlSy0DFD3PaXzd8~yDLzJX9uaABNrtmnFRGh5n8x3gnOwJ0-pjXF2MqDs3E-YCAF~jky~TcRLeMk~U1J6nD~6DAuqUsaJWX7piwCQQ0a8iToZwWLentaahRBPaauIC1DQD1TnvEyzCTAeHVGbPKlYbb-QN21soJC~bVXVc3bk5tiybNkI3lS-pcJPw0RNUzeo3MCwJnxtG8x4vbyt65RZvrt8oEUtVAOLvtr09IB1pFDO26jrDv5afYXmToeFVo4HcQoCnzm8Hs60sDLvWMZIBt~gwJb0BgOLgUI1pp5kQ__"
-        alt="upload"
-        className="w-12 h-12 opacity-60"
-        style={{ filter: isDragging ? "none" : "grayscale(0.3)" }}
-      />
-      <div className="text-center">
-        <p
-          className="text-sm font-medium"
-          style={{ color: "#1A1A1A", fontFamily: "'IBM Plex Sans', sans-serif" }}
-        >
-          {isDragging ? "松开以上传" : "拖拽或点击上传音频"}
-        </p>
-        <p
-          className="text-xs mt-1"
-          style={{ color: "#9B9B95", fontFamily: "'IBM Plex Sans', sans-serif" }}
-        >
-          支持 MP3、WAV、M4A、OGG、FLAC 等格式
-        </p>
-      </div>
-    </motion.div>
-  );
-}
-
-// ─── Parameter Control ────────────────────────────────────────────────────────
+// ─── Param Control ────────────────────────────────────────────────────────────
 
 function ParamControl({
   label,
   value,
-  unit,
+  onChange,
   min,
   max,
   step,
-  onChange,
+  unit,
   description,
 }: {
   label: string;
   value: number;
-  unit: string;
+  onChange: (val: number) => void;
   min: number;
   max: number;
   step: number;
-  onChange: (v: number) => void;
-  description?: string;
+  unit: string;
+  description: string;
 }) {
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex justify-between items-baseline">
-        <span
-          className="text-xs font-medium tracking-wide uppercase"
-          style={{ color: "#9B9B95", fontFamily: "'IBM Plex Sans', sans-serif" }}
+    <div className="mb-6">
+      <div className="flex justify-between items-baseline mb-2">
+        <label
+          className="text-xs font-medium tracking-widest uppercase"
+          style={{ color: "#1A1A1A" }}
         >
           {label}
-        </span>
+        </label>
         <span
-          className="text-sm font-medium"
-          style={{ color: "#1A1A1A", fontFamily: "'IBM Plex Mono', monospace" }}
+          className="text-sm font-mono"
+          style={{ color: "#2D4EF5", fontWeight: "600" }}
         >
-          {value}
-          <span className="text-xs ml-0.5" style={{ color: "#9B9B95" }}>{unit}</span>
+          {value.toFixed(value < 1 ? 2 : 0)}{unit}
         </span>
       </div>
       <Slider
+        value={[value]}
+        onValueChange={(vals) => onChange(vals[0])}
         min={min}
         max={max}
         step={step}
-        value={[value]}
-        onValueChange={([v]) => onChange(v)}
-        className="w-full"
+        className="mb-2"
       />
-      {description && (
-        <p className="text-xs" style={{ color: "#B0B0AA", fontFamily: "'IBM Plex Sans', sans-serif" }}>
-          {description}
-        </p>
-      )}
+      <p
+        className="text-xs leading-relaxed"
+        style={{ color: "#9B9B95", lineHeight: "1.5" }}
+      >
+        {description}
+      </p>
     </div>
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// ─── Upload Zone ────────────────────────────────────────────────────────────
+
+function UploadZone({
+  onFiles,
+  disabled,
+}: {
+  onFiles: (files: File[]) => void;
+  disabled: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files).filter((f) =>
+      f.type.startsWith("audio/")
+    );
+    if (files.length > 0) onFiles(files);
+  };
+
+  const handleClick = () => {
+    inputRef.current?.click();
+  };
+
+  return (
+    <div
+      className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+        isDragging ? "bg-blue-50" : "bg-white"
+      } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+      style={{
+        borderColor: isDragging ? "#2D4EF5" : "#E8E8E4",
+        backgroundColor: isDragging ? "#F0F4FF" : "#FAFAF8",
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        !disabled && setIsDragging(true);
+      }}
+      onDragLeave={() => setIsDragging(false)}
+      onDrop={handleDrop}
+      onClick={!disabled ? handleClick : undefined}
+    >
+      <div className="mb-3">
+        <svg
+          className="w-12 h-12 mx-auto"
+          style={{ color: "#2D4EF5" }}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M12 16v-4m0 0V8m0 4H8m4 0h4M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+          />
+        </svg>
+      </div>
+      <p
+        className="text-sm font-medium mb-1"
+        style={{ color: "#1A1A1A" }}
+      >
+        拖拽或点击上传音频
+      </p>
+      <p
+        className="text-xs"
+        style={{ color: "#9B9B95" }}
+      >
+        支持 MP3、WAV、M4A、OGG、FLAC 等格式
+      </p>
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        accept="audio/*"
+        onChange={(e) => {
+          const files = Array.from(e.target.files || []);
+          if (files.length > 0) onFiles(files);
+        }}
+        className="hidden"
+        disabled={disabled}
+      />
+    </div>
+  );
+}
+
+// ─── Main Component ────────────────────────────────────────────────────────────
 
 export default function Home() {
   const [params, setParams] = useState<AnalysisParams>(DEFAULT_PARAMS);
   const [result, setResult] = useState<AudioAnalysisResult | null>(null);
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchResults, setBatchResults] = useState<Map<string, AudioAnalysisResult>>(new Map());
   const [analyzing, setAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
-  const [trimming, setTrimming] = useState(false);
   const [shortenedSilenceDuration, setShortenedSilenceDuration] = useState(0.5);
-  const [batchResults, setBatchResults] = useState<Map<string, AudioAnalysisResult>>(new Map());
-  const [batchMode, setBatchMode] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
-  const effectiveCountUp = useCountUpTime(result?.effectiveDuration ?? 0, 1200);
-  const silenceCountUp = useCountUpTime(result?.silenceDuration ?? 0, 1200);
-  const totalCountUp = useCountUpTime(result?.totalDuration ?? 0, 1000);
+  const effectiveCountUp = useCountUpTime(result?.effectiveDuration || 0);
+  const silenceCountUp = useCountUpTime(result?.silenceDuration || 0);
+  const totalCountUp = useCountUpTime(result?.totalDuration || 0);
 
-  const runAnalysis = useCallback(async (file: File, analysisParams: AnalysisParams) => {
-    setAnalyzing(true);
-    setProgress(0);
-    setError(null);
-    try {
-      // Decode audio for later trimming
-      const audioContext = new AudioContext();
-      const arrayBuffer = await file.arrayBuffer();
-      const decoded = await audioContext.decodeAudioData(arrayBuffer);
-      setAudioBuffer(decoded);
-      await audioContext.close();
-
-      const res = await analyzeAudio(file, analysisParams, setProgress);
-      setResult(res);
-    } catch (err) {
-      setError("音频解析失败，请检查文件格式是否支持。");
-      console.error(err);
-    } finally {
-      setAnalyzing(false);
-    }
-  }, []);
-
-  const handleFile = useCallback(
-    (file: File) => {
-      setCurrentFile(file);
-      setResult(null);
-      setAudioBuffer(null);
-      runAnalysis(file, params);
+  const handleParamChange = useCallback(
+    (key: keyof AnalysisParams, value: number) => {
+      const newParams = { ...params, [key]: value };
+      setParams(newParams);
+      if (result) {
+        setAnalyzing(true);
+        setTimeout(async () => {
+          try {
+            // Re-analyze with new params
+            setAnalyzing(false);
+          } catch (err) {
+            console.error("Re-analysis failed:", err);
+            setAnalyzing(false);
+          }
+        }, 100);
+      }
     },
-    [params, runAnalysis]
+    [params, result]
   );
 
   const handleFiles = useCallback(
@@ -428,371 +286,218 @@ export default function Home() {
       setBatchResults(new Map());
       setError(null);
       setResult(null);
+      setAnalyzing(true);
+      setProgress(0);
       
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        setProgress(Math.round((i / files.length) * 100));
-        setCurrentFile(file);
-        
-        try {
-          const res = await analyzeAudio(file, params, () => {});
-          setBatchResults(prev => new Map(prev).set(file.name, res));
-        } catch (err) {
-          console.error(`Failed to analyze ${file.name}:`, err);
+      try {
+        // First, analyze individual files
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          setProgress(Math.round((i / files.length) * 40));
+          
+          try {
+            const res = await analyzeAudio(file, params, () => {});
+            setBatchResults(prev => new Map(prev).set(file.name, res));
+          } catch (err) {
+            console.error(`Failed to analyze ${file.name}:`, err);
+          }
         }
+        
+        // Then, analyze merged audio
+        setProgress(50);
+        const mergedResult = await analyzeMergedAudio(files, params, (p) => {
+          setProgress(50 + Math.round(p * 0.5));
+        });
+        
+        // Store merged result with a special key
+        setBatchResults(prev => new Map(prev).set('__merged__', mergedResult));
+        setProgress(100);
+      } catch (err) {
+        setError('批量分析失败，请检查音频文件。');
+        console.error('Batch analysis failed:', err);
+      } finally {
+        setAnalyzing(false);
+        setTimeout(() => setProgress(0), 500);
       }
-      
-      setProgress(100);
-      setTimeout(() => setProgress(0), 500);
     },
     [params]
   );
 
-  const handleParamChange = useCallback(
-    (key: keyof AnalysisParams, value: number) => {
-      const newParams = { ...params, [key]: value };
-      setParams(newParams);
-      if (currentFile) {
-        runAnalysis(currentFile, newParams);
-      }
-    },
-    [params, currentFile, runAnalysis]
-  );
-
-  const handleTrimAndExport = useCallback(async () => {
-    if (!result || !audioBuffer) return;
-    setTrimming(true);
+  const handleExport = async () => {
+    if (!result) return;
+    setExporting(true);
     try {
-      const trimmed = await createShortenedAudio(
-        audioBuffer,
+      const audioBuffer = await createShortenedAudio(
         result,
-        { shortenedSilenceDuration },
-        setProgress
+        shortenedSilenceDuration,
+        (p: number) => {}
       );
-      const filename = currentFile
-        ? `${currentFile.name.replace(/\.[^.]+$/, '')}_trimmed.wav`
-        : "audio_trimmed.wav";
-      downloadAudioBuffer(trimmed, filename);
+      await downloadAudioBuffer(audioBuffer, `trimmed-${Date.now()}.wav`);
     } catch (err) {
-      setError("导出失败，请重试。");
-      console.error(err);
+      console.error("Export failed:", err);
+      setError("导出失败");
     } finally {
-      setTrimming(false);
+      setExporting(false);
     }
-  }, [result, audioBuffer, shortenedSilenceDuration, currentFile]);
+  };
 
   return (
-    <div
-      className="min-h-screen"
-      style={{ background: "#FAFAF8", fontFamily: "'IBM Plex Sans', sans-serif" }}
-    >
+    <div className="min-h-screen" style={{ background: "#FAFAF8" }}>
       {/* Header */}
-      <header
-        className="w-full border-b"
-        style={{ borderColor: "#E8E8E4", background: "#FAFAF8" }}
-      >
-        <div className="container flex items-center justify-between py-4">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-7 h-7 rounded flex items-center justify-center"
-              style={{ background: "#2D4EF5" }}
-            >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <rect x="1" y="5" width="2" height="4" rx="0.5" fill="white" />
-                <rect x="4" y="3" width="2" height="8" rx="0.5" fill="white" />
-                <rect x="7" y="1" width="2" height="12" rx="0.5" fill="white" />
-                <rect x="10" y="4" width="2" height="6" rx="0.5" fill="white" />
-              </svg>
-            </div>
-            <div>
-              <h1
-                className="text-sm font-semibold leading-tight"
-                style={{ color: "#1A1A1A", letterSpacing: "-0.01em" }}
-              >
-                音频有效时长计算器
-              </h1>
-              <p className="text-xs" style={{ color: "#9B9B95" }}>
-                Audio Silence Trimmer
-              </p>
-            </div>
+      <header className="border-b sticky top-0 z-40" style={{ borderColor: "#E8E8E4", background: "#FAFAF8" }}>
+        <div className="container py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold" style={{ color: "#1A1A1A", fontFamily: "'Playfair Display', serif" }}>
+              音频有效时长计算器
+            </h1>
+            <p className="text-xs" style={{ color: "#9B9B95" }}>
+              Audio Silence Trimmer
+            </p>
           </div>
-          {result && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-xs"
-              style={{ color: "#9B9B95", fontFamily: "'IBM Plex Mono', monospace" }}
-            >
-              {result.fileName} · {formatFileSize(result.fileSize)}
-            </motion.div>
-          )}
         </div>
       </header>
 
-      {/* Hero waveform banner - always visible as decorative element */}
-      <div
-        className="w-full overflow-hidden"
-        style={{ height: "72px", opacity: result ? 0.15 : 0.3, transition: "opacity 0.6s ease" }}
-      >
-        <img
-          src="https://private-us-east-1.manuscdn.com/sessionFile/6DytyFBPCtN5QMCFn5Cp8v/sandbox/NI3JXE06UGoSrz8dviebW7-img-1_1772123970000_na1fn_YXVkaW8taGVyby1iZw.png?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvNkR5dHlGQlBDdE41UU1DRm41Q3A4di9zYW5kYm94L05JM0pYRTA2VUdvU3J6OGR2aWViVzctaW1nLTFfMTc3MjEyMzk3MDAwMF9uYTFmbl9ZWFZrYVc4dGFHVnlieTFpWncucG5nP3gtb3NzLXByb2Nlc3M9aW1hZ2UvcmVzaXplLHdfMTkyMCxoXzE5MjAvZm9ybWF0LHdlYnAvcXVhbGl0eSxxXzgwIiwiQ29uZGl0aW9uIjp7IkRhdGVMZXNzVGhhbiI6eyJBV1M6RXBvY2hUaW1lIjoxNzk4NzYxNjAwfX19XX0_&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=Jb~finqXfb0DdnUOUJ9ooaghnp-BnkVZqvy7jVVjF-qPanN0Rdm0QkMOTani7g6fQqiZUXkJcFfAmpkZ1Niv6eWVgU2Bx5vrSweGq4LGv4WvpmV74-qsCo8zLpnuUpkbrjQeSPQFPTtg7nlJRM--mNWfY0MU3BRw8s3qSRRf4KRC3UTWQqYeZtLISr0WTqJP9LkqndkCsvFiNX9PXMa-zaSti0VFr6BnVEfXHLsxlq~hQJcTOSRCBhHn7XlkylaacNGl8PzwT8yUjsB2luhMT1Gx66pJ9pPOJiU6R4lYbsCYzFsRvSmLJBj5VFhjRKYOIoSBm8vnAMiVYMIOdnSW4w__"
-          alt=""
-          className="w-full h-full object-cover object-center"
-        />
-      </div>
-
-      {/* Main content */}
+      {/* Main Content */}
       <main className="container py-8">
-        <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left: Controls */}
+          <div className="lg:col-span-1">
+            <div className="sticky top-24">
+              {/* Upload */}
+              <div className="mb-8">
+                <h2 className="text-sm font-semibold mb-4 tracking-widest uppercase" style={{ color: "#1A1A1A" }}>
+                  上传音频
+                </h2>
+                <UploadZone onFiles={handleFiles} disabled={analyzing} />
+              </div>
 
-          {/* ── Left Panel: Controls ── */}
-          <div className="lg:w-1/3 flex flex-col gap-6">
-            {/* Upload */}
-            <div>
-              <h2
-                className="text-xs font-medium tracking-widest uppercase mb-3"
-                style={{ color: "#9B9B95" }}
-              >
-                上传音频
-              </h2>
-              <UploadZone
-                onFile={handleFile}
-                onFiles={handleFiles}
-                isDragging={isDragging}
-                setIsDragging={setIsDragging}
-              />
-              {error && (
-                <p className="text-xs mt-2" style={{ color: "#E05252" }}>
-                  {error}
-                </p>
-              )}
-            </div>
+              {/* Parameters */}
+              <div className="mb-8">
+                <h2 className="text-sm font-semibold mb-4 tracking-widest uppercase" style={{ color: "#1A1A1A" }}>
+                  检测参数
+                </h2>
+                <ParamControl
+                  label="静音阈值"
+                  value={params.silenceThresholdDb}
+                  onChange={(v) => handleParamChange("silenceThresholdDb", v)}
+                  min={-80}
+                  max={-20}
+                  step={1}
+                  unit="dB"
+                  description="低于此音量视为静音，越低越严格"
+                />
+                <ParamControl
+                  label="最短静音时长"
+                  value={params.minSilenceDuration}
+                  onChange={(v) => handleParamChange("minSilenceDuration", v)}
+                  min={0.05}
+                  max={1}
+                  step={0.01}
+                  unit="s"
+                  description="连续静音超过此时长才算作一个静音段"
+                />
+                <ParamControl
+                  label="边缘保留时长"
+                  value={params.paddingDuration}
+                  onChange={(v) => handleParamChange("paddingDuration", v)}
+                  min={0}
+                  max={0.5}
+                  step={0.01}
+                  unit="s"
+                  description="在静音段边缘保留的音频时长"
+                />
+              </div>
 
-            {/* Divider */}
-            <div style={{ height: "1px", background: "#E8E8E4" }} />
-
-            {/* Parameters */}
-            <div className="flex flex-col gap-5">
-              <h2
-                className="text-xs font-medium tracking-widest uppercase"
-                style={{ color: "#9B9B95" }}
-              >
-                检测参数
-              </h2>
-
-              <ParamControl
-                label="静音阈值"
-                value={params.silenceThresholdDb}
-                unit="dB"
-                min={-70}
-                max={-10}
-                step={1}
-                onChange={(v) => handleParamChange("silenceThresholdDb", v)}
-                description="低于此音量视为静音，越低越严格"
-              />
-
-              <ParamControl
-                label="最短静音时长"
-                value={params.minSilenceDuration}
-                unit="s"
-                min={0.1}
-                max={3}
-                step={0.05}
-                onChange={(v) => handleParamChange("minSilenceDuration", v)}
-                description="连续静音超过此时长才计入空白"
-              />
-
-              <ParamControl
-                label="边缘保留时长"
-                value={params.paddingDuration}
-                unit="s"
-                min={0}
-                max={0.5}
-                step={0.01}
-                onChange={(v) => handleParamChange("paddingDuration", v)}
-                description="静音段两端保留的音频缓冲"
-              />
-            </div>
-
-            {/* Divider */}
-            <div style={{ height: "1px", background: "#E8E8E4" }} />
-
-            {/* Trimming Options */}
-            {result && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex flex-col gap-3"
-              >
-                <h2
-                  className="text-xs font-medium tracking-widest uppercase"
-                  style={{ color: "#9B9B95" }}
-                >
+              {/* Shortened Silence Duration */}
+              <div className="mb-8">
+                <h2 className="text-sm font-semibold mb-4 tracking-widest uppercase" style={{ color: "#1A1A1A" }}>
                   缩短静音
                 </h2>
                 <ParamControl
                   label="缩短后静音时长"
                   value={shortenedSilenceDuration}
-                  unit="s"
+                  onChange={setShortenedSilenceDuration}
                   min={0.1}
                   max={2}
-                  step={0.05}
-                  onChange={setShortenedSilenceDuration}
-                  description="每个静音段缩短到此时长（默认 0.5s = 500ms AU 标准）"
+                  step={0.1}
+                  unit="s"
+                  description="每个静音段将被缩短到此时长"
                 />
                 
-                <div className="flex gap-2">
+                {/* Quick buttons */}
+                <div className="flex gap-2 mb-4">
                   <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => setShortenedSilenceDuration(0.5)}
-                    className="flex-1 text-xs"
-                    style={{
-                      background: shortenedSilenceDuration === 0.5 ? "#2D4EF5" : "#F4F4F2",
-                      color: shortenedSilenceDuration === 0.5 ? "#FAFAF8" : "#2D4EF5",
-                      border: "1px solid #2D4EF5",
-                    }}
+                    className={shortenedSilenceDuration === 0.5 ? "bg-blue-50" : ""}
                   >
                     500ms
                   </Button>
                   <Button
-                    onClick={() => setShortenedSilenceDuration(1)}
-                    className="flex-1 text-xs"
-                    style={{
-                      background: shortenedSilenceDuration === 1 ? "#2D4EF5" : "#F4F4F2",
-                      color: shortenedSilenceDuration === 1 ? "#FAFAF8" : "#2D4EF5",
-                      border: "1px solid #2D4EF5",
-                    }}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShortenedSilenceDuration(1.0)}
+                    className={shortenedSilenceDuration === 1.0 ? "bg-blue-50" : ""}
                   >
                     1000ms
                   </Button>
                 </div>
-                
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="rounded-lg p-6 flex flex-col gap-3"
-                  style={{ background: "#F4F4F2" }}
-                >
-                  <span
-                    className="text-xs font-medium tracking-wide uppercase"
-                    style={{ color: "#9B9B95", fontFamily: "'IBM Plex Sans', sans-serif" }}
-                  >
-                    导出后时长
-                  </span>
-                  <span
-                    className="font-bold leading-none"
-                    style={{
-                      fontFamily: "'Playfair Display', serif",
-                      fontSize: "clamp(2.5rem, 5vw, 4rem)",
-                      color: "#2D4EF5",
-                      letterSpacing: "-0.02em",
-                    }}
-                  >
-                    {(() => {
-                      const effectiveDuration = result?.effectiveDuration ?? 0;
-                      const silenceCount = Math.max(0, (result?.activeSegments.length ?? 1) - 1);
-                      const totalExportDuration = effectiveDuration + (silenceCount * shortenedSilenceDuration);
-                      const hours = Math.floor(totalExportDuration / 3600);
-                      const minutes = Math.floor((totalExportDuration % 3600) / 60);
-                      const secs = Math.floor(totalExportDuration % 60);
-                      const parts = [];
-                      if (hours > 0) parts.push(`${hours}h`);
-                      if (minutes > 0) parts.push(`${minutes}m`);
-                      if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
-                      return parts.join(' ');
-                    })()}
-                  </span>
-                  <div className="text-xs" style={{ color: "#B0B0AA", fontFamily: "'IBM Plex Sans', sans-serif" }}>
-                    {effectiveCountUp} + {result?.silenceSegments.length ?? 0} 个静音段 × {shortenedSilenceDuration.toFixed(2)}s
-                  </div>
-                </motion.div>
-                
-                <Button
-                  onClick={handleTrimAndExport}
-                  disabled={trimming}
-                  className="w-full mt-2"
-                  style={{
-                    background: trimming ? "#D4D4D0" : "#2D4EF5",
-                    color: "#FAFAF8",
-                  }}
-                >
-                  {trimming ? "处理中..." : "导出缩短后的音频"}
-                </Button>
-              </motion.div>
-            )}
 
-            {/* Divider */}
-            {result && <div style={{ height: "1px", background: "#E8E8E4" }} />}
-
-            {/* File info */}
-            {result && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex flex-col gap-1.5"
-              >
-                <h2
-                  className="text-xs font-medium tracking-widest uppercase mb-1"
-                  style={{ color: "#9B9B95" }}
-                >
-                  文件信息
-                </h2>
-                {[
-                  ["文件名", result.fileName],
-                  ["大小", formatFileSize(result.fileSize)],
-                  ["采样率", `${result.sampleRate.toLocaleString()} Hz`],
-                  ["静音段数", `${result.silenceSegments.length} 段`],
-                ].map(([k, v]) => (
-                  <div key={k} className="flex justify-between">
-                    <span className="text-xs" style={{ color: "#9B9B95" }}>{k}</span>
-                    <span
-                      className="text-xs font-medium"
-                      style={{ color: "#1A1A1A", fontFamily: "'IBM Plex Mono', monospace" }}
-                    >
-                      {v}
-                    </span>
-                  </div>
-                ))}
-              </motion.div>
-            )}
+                {/* Export button */}
+                {result && !batchMode && (
+                  <Button
+                    onClick={handleExport}
+                    disabled={exporting || analyzing}
+                    className="w-full"
+                  >
+                    {exporting ? "导出中..." : "导出缩短后的音频"}
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* ── Right Panel: Results ── */}
-          <div className="lg:w-2/3 flex flex-col gap-8">
+          {/* Right: Results */}
+          <div className="lg:col-span-2">
+            {/* Loading state */}
+            {analyzing && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col items-center justify-center gap-4 py-20"
+              >
+                <div
+                  className="w-12 h-12 border-4 border-transparent rounded-full animate-spin"
+                  style={{ borderTopColor: "#2D4EF5" }}
+                />
+                <div className="text-center">
+                  <p className="text-sm font-medium" style={{ color: "#1A1A1A" }}>
+                    分析中... {progress}%
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: "#9B9B95" }}>
+                    处理音频文件
+                  </p>
+                </div>
+              </motion.div>
+            )}
 
-            {/* Analyzing state */}
-            <AnimatePresence>
-              {(analyzing || trimming) && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="flex flex-col items-center justify-center gap-4 py-16"
-                >
-                  <div
-                    className="text-xs tracking-widest uppercase"
-                    style={{ color: "#9B9B95" }}
-                  >
-                    {trimming ? "处理中" : "正在分析"}
-                  </div>
-                  <div className="w-48 rounded-full overflow-hidden" style={{ height: "2px", background: "#E8E8E4" }}>
-                    <motion.div
-                      animate={{ width: `${progress}%` }}
-                      transition={{ duration: 0.3 }}
-                      style={{ height: "100%", background: "#2D4EF5" }}
-                    />
-                  </div>
-                  <div
-                    className="text-xs"
-                    style={{ color: "#B0B0AA", fontFamily: "'IBM Plex Mono', monospace" }}
-                  >
-                    {progress}%
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {/* Error state */}
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-lg p-4 mb-4"
+                style={{ background: "#FEE2E2", borderLeft: "4px solid #EF4444" }}
+              >
+                <p className="text-sm" style={{ color: "#991B1B" }}>
+                  {error}
+                </p>
+              </motion.div>
+            )}
 
             {/* Empty state */}
-            {!result && !analyzing && (
+            {!result && !batchMode && !analyzing && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -813,7 +518,7 @@ export default function Home() {
               </motion.div>
             )}
 
-            {/* Results */}
+            {/* Batch Results */}
             <AnimatePresence>
               {batchMode && batchResults.size > 0 && (
                 <motion.div
@@ -823,7 +528,7 @@ export default function Home() {
                 >
                   <div>
                     <h3 className="text-sm font-semibold mb-4" style={{ color: "#1A1A1A" }}>
-                      批量分析结果 ({batchResults.size})
+                      批量分析结果 ({batchResults.size - 1})
                     </h3>
                     <div className="overflow-x-auto rounded-lg border" style={{ borderColor: "#E8E8E4" }}>
                       <table className="w-full text-xs">
@@ -838,39 +543,25 @@ export default function Home() {
                         </thead>
                         <tbody>
                           {Array.from(batchResults.entries()).map(([name, res]) => {
-                            const hours = Math.floor(res.effectiveDuration / 3600);
-                            const minutes = Math.floor((res.effectiveDuration % 3600) / 60);
-                            const secs = Math.floor(res.effectiveDuration % 60);
-                            const parts = [];
-                            if (hours > 0) parts.push(`${hours}h`);
-                            if (minutes > 0) parts.push(`${minutes}m`);
-                            if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
-                            const effectiveStr = parts.join(' ');
+                            if (name === '__merged__') return null;
                             
-                            const silenceHours = Math.floor(res.silenceDuration / 3600);
-                            const silenceMinutes = Math.floor((res.silenceDuration % 3600) / 60);
-                            const silenceSecs = Math.floor(res.silenceDuration % 60);
-                            const silenceParts = [];
-                            if (silenceHours > 0) silenceParts.push(`${silenceHours}h`);
-                            if (silenceMinutes > 0) silenceParts.push(`${silenceMinutes}m`);
-                            if (silenceSecs > 0 || silenceParts.length === 0) silenceParts.push(`${silenceSecs}s`);
-                            const silenceStr = silenceParts.join(' ');
-                            
-                            const totalHours = Math.floor(res.totalDuration / 3600);
-                            const totalMinutes = Math.floor((res.totalDuration % 3600) / 60);
-                            const totalSecs = Math.floor(res.totalDuration % 60);
-                            const totalParts = [];
-                            if (totalHours > 0) totalParts.push(`${totalHours}h`);
-                            if (totalMinutes > 0) totalParts.push(`${totalMinutes}m`);
-                            if (totalSecs > 0 || totalParts.length === 0) totalParts.push(`${totalSecs}s`);
-                            const totalStr = totalParts.join(' ');
+                            const formatTime = (seconds: number) => {
+                              const hours = Math.floor(seconds / 3600);
+                              const minutes = Math.floor((seconds % 3600) / 60);
+                              const secs = Math.floor(seconds % 60);
+                              const parts = [];
+                              if (hours > 0) parts.push(`${hours}h`);
+                              if (minutes > 0) parts.push(`${minutes}m`);
+                              if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
+                              return parts.join(' ');
+                            };
                             
                             return (
                               <tr key={name} style={{ borderTop: "1px solid #E8E8E4" }}>
                                 <td className="px-4 py-3" style={{ color: "#1A1A1A" }}>{name}</td>
-                                <td className="px-4 py-3 text-right" style={{ color: "#2D4EF5", fontWeight: "500" }}>{effectiveStr}</td>
-                                <td className="px-4 py-3 text-right" style={{ color: "#9B9B95" }}>{silenceStr}</td>
-                                <td className="px-4 py-3 text-right" style={{ color: "#9B9B95" }}>{totalStr}</td>
+                                <td className="px-4 py-3 text-right" style={{ color: "#2D4EF5", fontWeight: "500" }}>{formatTime(res.effectiveDuration)}</td>
+                                <td className="px-4 py-3 text-right" style={{ color: "#9B9B95" }}>{formatTime(res.silenceDuration)}</td>
+                                <td className="px-4 py-3 text-right" style={{ color: "#9B9B95" }}>{formatTime(res.totalDuration)}</td>
                                 <td className="px-4 py-3 text-right" style={{ color: "#9B9B95" }}>{(res.effectiveRatio * 100).toFixed(1)}%</td>
                               </tr>
                             );
@@ -879,19 +570,9 @@ export default function Home() {
                       </table>
                     </div>
                     
-                    {/* Summary row */}
-                    {(() => {
-                      let totalEffective = 0;
-                      let totalSilence = 0;
-                      let totalDuration = 0;
-                      let totalSilenceSegments = 0;
-                      
-                      Array.from(batchResults.values()).forEach(res => {
-                        totalEffective += res.effectiveDuration;
-                        totalSilence += res.silenceDuration;
-                        totalDuration += res.totalDuration;
-                        totalSilenceSegments += res.silenceSegments.length;
-                      });
+                    {/* Merged result summary */}
+                    {batchResults.has('__merged__') && (() => {
+                      const mergedRes = batchResults.get('__merged__')!;
                       
                       const formatTime = (seconds: number) => {
                         const hours = Math.floor(seconds / 3600);
@@ -904,26 +585,23 @@ export default function Home() {
                         return parts.join(' ');
                       };
                       
-                      const effectiveStr = formatTime(totalEffective);
-                      const silenceStr = formatTime(totalSilence);
-                      const totalStr = formatTime(totalDuration);
-                      const ratio = totalDuration > 0 ? (totalEffective / totalDuration) * 100 : 0;
+                      const exportedDuration = mergedRes.effectiveDuration + (mergedRes.silenceSegments.length * shortenedSilenceDuration);
                       
                       return (
                         <div className="mt-4 p-4 rounded-lg" style={{ background: "#F4F4F2" }}>
-                          <div className="grid grid-cols-5 gap-4 text-xs font-semibold">
-                            <div style={{ color: "#9B9B95" }}>总计</div>
-                            <div className="text-right" style={{ color: "#2D4EF5" }}>{effectiveStr}</div>
-                            <div className="text-right" style={{ color: "#9B9B95" }}>{silenceStr}</div>
-                            <div className="text-right" style={{ color: "#9B9B95" }}>{totalStr}</div>
-                            <div className="text-right" style={{ color: "#9B9B95" }}>{ratio.toFixed(1)}%</div>
+                          <div className="grid grid-cols-5 gap-4 text-xs font-semibold mb-6">
+                            <div style={{ color: "#9B9B95" }}>合并总计</div>
+                            <div className="text-right" style={{ color: "#2D4EF5" }}>{formatTime(mergedRes.effectiveDuration)}</div>
+                            <div className="text-right" style={{ color: "#9B9B95" }}>{formatTime(mergedRes.silenceDuration)}</div>
+                            <div className="text-right" style={{ color: "#9B9B95" }}>{formatTime(mergedRes.totalDuration)}</div>
+                            <div className="text-right" style={{ color: "#9B9B95" }}>{(mergedRes.effectiveRatio * 100).toFixed(1)}%</div>
                           </div>
                           
                           {/* Export duration preview */}
-                          <div className="mt-6 pt-4 border-t" style={{ borderColor: "#E8E8E4" }}>
+                          <div className="pt-4 border-t" style={{ borderColor: "#E8E8E4" }}>
                             <div className="flex justify-between items-center mb-3">
                               <span className="text-xs font-medium tracking-wide uppercase" style={{ color: "#9B9B95" }}>合并后导出时长</span>
-                              <span className="text-xs" style={{ color: "#9B9B95" }}>缩短参数: {shortenedSilenceDuration.toFixed(3)}s × {totalSilenceSegments} 段</span>
+                              <span className="text-xs" style={{ color: "#9B9B95" }}>缩短参数: {shortenedSilenceDuration.toFixed(3)}s × {mergedRes.silenceSegments.length} 段</span>
                             </div>
                             <div className="font-bold leading-none" style={{
                               fontFamily: "'Playfair Display', serif",
@@ -931,7 +609,7 @@ export default function Home() {
                               color: "#2D4EF5",
                               letterSpacing: "-0.02em",
                             }}>
-                              {formatTime(totalEffective + (totalSilenceSegments * shortenedSilenceDuration))}
+                              {formatTime(exportedDuration)}
                             </div>
                           </div>
                         </div>
@@ -976,42 +654,78 @@ export default function Home() {
                         className="text-xs font-medium tracking-widest uppercase"
                         style={{ color: "#9B9B95" }}
                       >
-                        波形视图
+                        波形可视化
                       </span>
-                      <div className="flex gap-3">
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-2 h-2 rounded-sm" style={{ background: "#2D4EF5" }} />
-                          <span className="text-xs" style={{ color: "#9B9B95" }}>有效</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-2 h-2 rounded-sm" style={{ background: "#D4D4D0" }} />
-                          <span className="text-xs" style={{ color: "#9B9B95" }}>静音</span>
-                        </div>
-                      </div>
+                      <span
+                        className="text-xs font-mono"
+                        style={{ color: "#9B9B95" }}
+                      >
+                        {result.silenceSegments.length} 个静音段
+                      </span>
                     </div>
-                    <div
-                      className="rounded-lg overflow-hidden"
-                      style={{ background: "#F4F4F2", padding: "12px 16px" }}
-                    >
-                      <WaveformVisualizer result={result} height={130} />
-                    </div>
+                    <WaveformVisualizer result={result} />
                   </div>
 
-                  {/* Timeline */}
-                  <SegmentTimeline result={result} />
+                  {/* Silence segments */}
+                  {result.silenceSegments.length > 0 && (
+                    <div>
+                      <h3
+                        className="text-xs font-medium tracking-widest uppercase mb-3"
+                        style={{ color: "#1A1A1A" }}
+                      >
+                        静音段详情
+                      </h3>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {result.silenceSegments.map((seg, i) => (
+                          <div
+                            key={i}
+                            className="flex justify-between items-center px-3 py-2 rounded text-xs"
+                            style={{ background: "#F4F4F2" }}
+                          >
+                            <span style={{ color: "#9B9B95" }}>
+                              {seg.start.toFixed(2)}s - {seg.end.toFixed(2)}s
+                            </span>
+                            <span
+                              style={{ color: "#2D4EF5", fontWeight: "500" }}
+                            >
+                              {seg.duration.toFixed(2)}s
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-                  {/* Divider */}
-                  <div style={{ height: "1px", background: "#E8E8E4" }} />
-
-                  {/* Silence segments table */}
-                  <div>
-                    <h3
-                      className="text-xs font-medium tracking-widest uppercase mb-3"
-                      style={{ color: "#9B9B95" }}
+                  {/* Export duration preview */}
+                  <div className="p-4 rounded-lg" style={{ background: "#F4F4F2" }}>
+                    <div className="flex justify-between items-center mb-3">
+                      <span
+                        className="text-xs font-medium tracking-wide uppercase"
+                        style={{ color: "#9B9B95" }}
+                      >
+                        导出后时长
+                      </span>
+                      <span
+                        className="text-xs"
+                        style={{ color: "#9B9B95" }}
+                      >
+                        缩短参数: {shortenedSilenceDuration.toFixed(3)}s × {result.silenceSegments.length} 段
+                      </span>
+                    </div>
+                    <div
+                      className="font-bold leading-none"
+                      style={{
+                        fontFamily: "'Playfair Display', serif",
+                        fontSize: "clamp(2rem, 4vw, 3rem)",
+                        color: "#2D4EF5",
+                        letterSpacing: "-0.02em",
+                      }}
                     >
-                      静音段详情 ({result.silenceSegments.length} 段)
-                    </h3>
-                    <SilenceTable result={result} />
+                      {formatDurationHelper(
+                        result.effectiveDuration +
+                          result.silenceSegments.length * shortenedSilenceDuration
+                      )}
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -1021,4 +735,15 @@ export default function Home() {
       </main>
     </div>
   );
+}
+
+function formatDurationHelper(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  const parts = [];
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
+  return parts.join(' ');
 }

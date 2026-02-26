@@ -49,12 +49,11 @@ function dbToLinear(db: number): number {
 }
 
 /**
- * Compute RMS (Root Mean Square) of a float array window
+ * Compute RMS (Root Mean Square) for a frame
  */
 function computeRms(data: Float32Array, start: number, end: number): number {
   let sum = 0;
   const len = end - start;
-  if (len <= 0) return 0;
   for (let i = start; i < end; i++) {
     sum += data[i] * data[i];
   }
@@ -81,24 +80,15 @@ export function downsampleWaveform(data: Float32Array, targetPoints: number): Fl
 }
 
 /**
- * Main analysis function: detect silence segments and compute effective duration
+ * Core analysis logic: analyze a single audio buffer
  */
-export async function analyzeAudio(
-  file: File,
+async function analyzeAudioBuffer(
+  audioBuffer: AudioBuffer,
   params: AnalysisParams,
+  fileName: string,
+  fileSize: number,
   onProgress?: (progress: number) => void
 ): Promise<AudioAnalysisResult> {
-  const audioContext = new AudioContext();
-
-  onProgress?.(10);
-
-  // Decode audio file
-  const arrayBuffer = await file.arrayBuffer();
-  onProgress?.(30);
-
-  const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-  onProgress?.(50);
-
   const sampleRate = audioBuffer.sampleRate;
   const totalDuration = audioBuffer.duration;
 
@@ -192,7 +182,6 @@ export async function analyzeAudio(
   // Downsample waveform for visualization
   const waveformData = downsampleWaveform(channelData, 1200);
 
-  await audioContext.close();
   onProgress?.(100);
 
   return {
@@ -204,26 +193,115 @@ export async function analyzeAudio(
     activeSegments,
     waveformData,
     sampleRate,
-    fileName: file.name,
-    fileSize: file.size,
+    fileName,
+    fileSize,
   };
 }
 
 /**
- * Format seconds to human-readable time string
+ * Main analysis function: detect silence segments and compute effective duration
+ */
+export async function analyzeAudio(
+  file: File,
+  params: AnalysisParams,
+  onProgress?: (progress: number) => void
+): Promise<AudioAnalysisResult> {
+  const audioContext = new AudioContext();
+
+  onProgress?.(10);
+
+  // Decode audio file
+  const arrayBuffer = await file.arrayBuffer();
+  onProgress?.(30);
+
+  const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+  onProgress?.(50);
+
+  const result = await analyzeAudioBuffer(audioBuffer, params, file.name, file.size, onProgress);
+  await audioContext.close();
+
+  return result;
+}
+
+/**
+ * Merge multiple audio files and analyze as a single combined audio
+ */
+export async function analyzeMergedAudio(
+  files: File[],
+  params: AnalysisParams,
+  onProgress?: (progress: number) => void
+): Promise<AudioAnalysisResult> {
+  const audioContext = new AudioContext();
+  const audioBuffers: AudioBuffer[] = [];
+  let totalSamples = 0;
+  let sampleRate = 0;
+
+  // Decode all files
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    onProgress?.(Math.floor((i / files.length) * 40));
+
+    const arrayBuffer = await file.arrayBuffer();
+    const decoded = await audioContext.decodeAudioData(arrayBuffer);
+    audioBuffers.push(decoded);
+    
+    if (i === 0) {
+      sampleRate = decoded.sampleRate;
+    }
+    
+    totalSamples += decoded.length;
+  }
+
+  onProgress?.(50);
+
+  // Create merged audio buffer
+  const mergedBuffer = audioContext.createBuffer(1, totalSamples, sampleRate);
+  const mergedData = mergedBuffer.getChannelData(0);
+
+  let offset = 0;
+  for (const buffer of audioBuffers) {
+    const channelData = buffer.getChannelData(0);
+    mergedData.set(channelData, offset);
+    offset += buffer.length;
+  }
+
+  onProgress?.(60);
+
+  // Analyze merged buffer
+  const result = await analyzeAudioBuffer(
+    mergedBuffer,
+    params,
+    `${files.length} files merged`,
+    files.reduce((sum, f) => sum + f.size, 0),
+    (p) => onProgress?.(60 + p * 0.4)
+  );
+
+  await audioContext.close();
+
+  return result;
+}
+
+/**
+ * Format duration in seconds to human-readable string
  */
 export function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = Math.floor(seconds % 60);
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  const parts = [];
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
+  return parts.join(' ');
 }
 
 /**
- * Format file size
+ * Format file size in bytes to human-readable string
  */
 export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
 }
