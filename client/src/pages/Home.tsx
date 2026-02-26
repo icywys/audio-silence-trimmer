@@ -226,10 +226,12 @@ function SilenceTable({ result }: { result: AudioAnalysisResult }) {
 
 function UploadZone({
   onFile,
+  onFiles,
   isDragging,
   setIsDragging,
 }: {
-  onFile: (file: File) => void;
+  onFile?: (file: File) => void;
+  onFiles?: (files: File[]) => void;
   isDragging: boolean;
   setIsDragging: (v: boolean) => void;
 }) {
@@ -239,20 +241,30 @@ function UploadZone({
     (e: React.DragEvent) => {
       e.preventDefault();
       setIsDragging(false);
-      const file = e.dataTransfer.files[0];
-      if (file && file.type.startsWith("audio/")) {
-        onFile(file);
+      const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("audio/"));
+      if (files.length > 0) {
+        if (onFiles) {
+          onFiles(files);
+        } else if (onFile && files[0]) {
+          onFile(files[0]);
+        }
       }
     },
-    [onFile, setIsDragging]
+    [onFile, onFiles, setIsDragging]
   );
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) onFile(file);
+      const files = Array.from(e.target.files || []);
+      if (files.length > 0) {
+        if (onFiles) {
+          onFiles(files);
+        } else if (onFile && files[0]) {
+          onFile(files[0]);
+        }
+      }
     },
-    [onFile]
+    [onFile, onFiles]
   );
 
   return (
@@ -273,6 +285,7 @@ function UploadZone({
         ref={inputRef}
         type="file"
         accept="audio/*"
+        multiple
         className="hidden"
         onChange={handleChange}
       />
@@ -368,6 +381,8 @@ export default function Home() {
   const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
   const [trimming, setTrimming] = useState(false);
   const [shortenedSilenceDuration, setShortenedSilenceDuration] = useState(0.5);
+  const [batchResults, setBatchResults] = useState<Map<string, AudioAnalysisResult>>(new Map());
+  const [batchMode, setBatchMode] = useState(false);
 
   const effectiveCountUp = useCountUpTime(result?.effectiveDuration ?? 0, 1200);
   const silenceCountUp = useCountUpTime(result?.silenceDuration ?? 0, 1200);
@@ -403,6 +418,34 @@ export default function Home() {
       runAnalysis(file, params);
     },
     [params, runAnalysis]
+  );
+
+  const handleFiles = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) return;
+      
+      setBatchMode(true);
+      setBatchResults(new Map());
+      setError(null);
+      setResult(null);
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setProgress(Math.round((i / files.length) * 100));
+        setCurrentFile(file);
+        
+        try {
+          const res = await analyzeAudio(file, params, () => {});
+          setBatchResults(prev => new Map(prev).set(file.name, res));
+        } catch (err) {
+          console.error(`Failed to analyze ${file.name}:`, err);
+        }
+      }
+      
+      setProgress(100);
+      setTimeout(() => setProgress(0), 500);
+    },
+    [params]
   );
 
   const handleParamChange = useCallback(
@@ -514,6 +557,7 @@ export default function Home() {
               </h2>
               <UploadZone
                 onFile={handleFile}
+                onFiles={handleFiles}
                 isDragging={isDragging}
                 setIsDragging={setIsDragging}
               />
@@ -596,6 +640,31 @@ export default function Home() {
                   onChange={setShortenedSilenceDuration}
                   description="每个静音段缩短到此时长（默认 0.5s = 500ms AU 标准）"
                 />
+                
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => setShortenedSilenceDuration(0.5)}
+                    className="flex-1 text-xs"
+                    style={{
+                      background: shortenedSilenceDuration === 0.5 ? "#2D4EF5" : "#F4F4F2",
+                      color: shortenedSilenceDuration === 0.5 ? "#FAFAF8" : "#2D4EF5",
+                      border: "1px solid #2D4EF5",
+                    }}
+                  >
+                    500ms
+                  </Button>
+                  <Button
+                    onClick={() => setShortenedSilenceDuration(1)}
+                    className="flex-1 text-xs"
+                    style={{
+                      background: shortenedSilenceDuration === 1 ? "#2D4EF5" : "#F4F4F2",
+                      color: shortenedSilenceDuration === 1 ? "#FAFAF8" : "#2D4EF5",
+                      border: "1px solid #2D4EF5",
+                    }}
+                  >
+                    1000ms
+                  </Button>
+                </div>
                 
                 <motion.div
                   initial={{ opacity: 0 }}
@@ -746,7 +815,73 @@ export default function Home() {
 
             {/* Results */}
             <AnimatePresence>
-              {result && !analyzing && (
+              {batchMode && batchResults.size > 0 && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex flex-col gap-6"
+                >
+                  <div>
+                    <h3 className="text-sm font-semibold mb-4" style={{ color: "#1A1A1A" }}>
+                      批量分析结果 ({batchResults.size})
+                    </h3>
+                    <div className="overflow-x-auto rounded-lg border" style={{ borderColor: "#E8E8E4" }}>
+                      <table className="w-full text-xs">
+                        <thead style={{ background: "#F4F4F2" }}>
+                          <tr>
+                            <th className="px-4 py-3 text-left" style={{ color: "#9B9B95" }}>文件名</th>
+                            <th className="px-4 py-3 text-right" style={{ color: "#9B9B95" }}>有效时长</th>
+                            <th className="px-4 py-3 text-right" style={{ color: "#9B9B95" }}>静音时长</th>
+                            <th className="px-4 py-3 text-right" style={{ color: "#9B9B95" }}>总时长</th>
+                            <th className="px-4 py-3 text-right" style={{ color: "#9B9B95" }}>有效占比</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Array.from(batchResults.entries()).map(([name, res]) => {
+                            const hours = Math.floor(res.effectiveDuration / 3600);
+                            const minutes = Math.floor((res.effectiveDuration % 3600) / 60);
+                            const secs = Math.floor(res.effectiveDuration % 60);
+                            const parts = [];
+                            if (hours > 0) parts.push(`${hours}h`);
+                            if (minutes > 0) parts.push(`${minutes}m`);
+                            if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
+                            const effectiveStr = parts.join(' ');
+                            
+                            const silenceHours = Math.floor(res.silenceDuration / 3600);
+                            const silenceMinutes = Math.floor((res.silenceDuration % 3600) / 60);
+                            const silenceSecs = Math.floor(res.silenceDuration % 60);
+                            const silenceParts = [];
+                            if (silenceHours > 0) silenceParts.push(`${silenceHours}h`);
+                            if (silenceMinutes > 0) silenceParts.push(`${silenceMinutes}m`);
+                            if (silenceSecs > 0 || silenceParts.length === 0) silenceParts.push(`${silenceSecs}s`);
+                            const silenceStr = silenceParts.join(' ');
+                            
+                            const totalHours = Math.floor(res.totalDuration / 3600);
+                            const totalMinutes = Math.floor((res.totalDuration % 3600) / 60);
+                            const totalSecs = Math.floor(res.totalDuration % 60);
+                            const totalParts = [];
+                            if (totalHours > 0) totalParts.push(`${totalHours}h`);
+                            if (totalMinutes > 0) totalParts.push(`${totalMinutes}m`);
+                            if (totalSecs > 0 || totalParts.length === 0) totalParts.push(`${totalSecs}s`);
+                            const totalStr = totalParts.join(' ');
+                            
+                            return (
+                              <tr key={name} style={{ borderTop: "1px solid #E8E8E4" }}>
+                                <td className="px-4 py-3" style={{ color: "#1A1A1A" }}>{name}</td>
+                                <td className="px-4 py-3 text-right" style={{ color: "#2D4EF5", fontWeight: "500" }}>{effectiveStr}</td>
+                                <td className="px-4 py-3 text-right" style={{ color: "#9B9B95" }}>{silenceStr}</td>
+                                <td className="px-4 py-3 text-right" style={{ color: "#9B9B95" }}>{totalStr}</td>
+                                <td className="px-4 py-3 text-right" style={{ color: "#9B9B95" }}>{(res.effectiveRatio * 100).toFixed(1)}%</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+              {result && !analyzing && !batchMode && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
