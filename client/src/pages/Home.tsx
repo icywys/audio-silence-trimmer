@@ -10,7 +10,7 @@ import { useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Slider } from "@/components/ui/slider";
 import { WaveformVisualizer } from "@/components/WaveformVisualizer";
-import { useCountUp } from "@/hooks/useCountUp";
+import { useCountUpTime } from "@/hooks/useCountUpTime";
 import {
   analyzeAudio,
   formatDuration,
@@ -362,9 +362,9 @@ export default function Home() {
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const effectiveCountUp = useCountUp(result?.effectiveDuration ?? 0, 1200, 2);
-  const silenceCountUp = useCountUp(result?.silenceDuration ?? 0, 1200, 2);
-  const totalCountUp = useCountUp(result?.totalDuration ?? 0, 1000, 2);
+  const effectiveCountUp = useCountUpTime(result?.effectiveDuration ?? 0, 1200);
+  const silenceCountUp = useCountUpTime(result?.silenceDuration ?? 0, 1200);
+  const totalCountUp = useCountUpTime(result?.totalDuration ?? 0, 1000);
 
   const runAnalysis = useCallback(async (file: File, analysisParams: AnalysisParams) => {
     setAnalyzing(true);
@@ -639,18 +639,15 @@ export default function Home() {
                     <StatCard
                       label="有效时长"
                       value={effectiveCountUp}
-                      unit="s"
                       accent
                     />
                     <StatCard
                       label="静音时长"
                       value={silenceCountUp}
-                      unit="s"
                     />
                     <StatCard
                       label="总时长"
                       value={totalCountUp}
-                      unit="s"
                     />
                   </div>
 
