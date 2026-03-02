@@ -37,8 +37,8 @@ export interface AnalysisParams {
 
 export const DEFAULT_PARAMS: AnalysisParams = {
   silenceThresholdDb: -60,
-  minSilenceDuration: 0.14,
-  paddingDuration: 0,
+  minSilenceDuration: 0.50,
+  paddingDuration: 0.02,
 };
 
 /**
