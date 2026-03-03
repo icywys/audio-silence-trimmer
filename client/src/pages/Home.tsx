@@ -660,6 +660,26 @@ export default function Home() {
                               {formatTime(exportedDuration)}
                             </div>
                           </div>
+                          
+                          {/* Total duration sum of all files */}
+                          <div className="pt-4 border-t" style={{ borderColor: "#E8E8E4" }}>
+                            <div className="flex justify-between items-center mb-3">
+                              <span className="text-xs font-medium tracking-wide uppercase" style={{ color: "#9B9B95" }}>所有文件总时长</span>
+                            </div>
+                            <div className="font-bold leading-none" style={{
+                              fontFamily: "'Playfair Display', serif",
+                              fontSize: "clamp(1.5rem, 3vw, 2.5rem)",
+                              color: "#1A1A1A",
+                              letterSpacing: "-0.02em",
+                            }}>
+                              {(() => {
+                                const totalDuration = Array.from(batchResults.entries())
+                                  .filter(([name]) => name !== '__merged__')
+                                  .reduce((sum, [, res]) => sum + res.totalDuration, 0);
+                                return formatTime(totalDuration);
+                              })()}
+                            </div>
+                          </div>
                         </div>
                       );
                     })()}
