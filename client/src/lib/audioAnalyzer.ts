@@ -261,7 +261,7 @@ export async function analyzeMergedAudio(
   const mergedData = mergedBuffer.getChannelData(0);
 
   // Boundary smoothing: remove potential artifacts at file junctions
-  const boundaryFadeMs = 50; // 50ms fade at boundaries
+  const boundaryFadeMs = 15; // 15ms fade at boundaries (reduced to minimize silence detection variance)
   const boundaryFadeSamples = Math.floor((boundaryFadeMs / 1000) * sampleRate);
 
   let offset = 0;
