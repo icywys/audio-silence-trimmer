@@ -226,24 +226,26 @@ export default function Home() {
         const audioFiles = files.filter(f => isAudioFile(f));
         const videoFilesArr = files.filter(f => isVideoFile(f));
         
-        // Process audio files
-        for (let i = 0; i < audioFiles.length; i++) {
-          const file = audioFiles[i];
-          setProgress(Math.round((i / files.length) * 40));
-          
+        // For audio files: analyze merged audio first to get accurate results
+        if (audioFiles.length > 0) {
+          setProgress(20);
           try {
-            const res = await analyzeAudio(file, params, () => {});
-            setBatchResults(prev => new Map(prev).set(file.name, res));
+            const mergedResult = await analyzeMergedAudio(audioFiles, params, (p: number) => {
+              setProgress(20 + Math.round(p * 0.3));
+            });
+            
+            // Store merged result with a special key
+            setBatchResults(prev => new Map(prev).set('__merged__', mergedResult));
           } catch (err) {
-            console.error(`Failed to analyze ${file.name}:`, err);
-            setError(`分析 ${file.name} 失败，文件可能过大或格式不支持`);
+            console.error('Merged analysis failed:', err);
+            setError('合并分析失败，建议使用更低比特率的 MP3 文件');
           }
         }
         
         // Process video files (just get duration)
         for (let i = 0; i < videoFilesArr.length; i++) {
           const file = videoFilesArr[i];
-          setProgress(Math.round((audioFiles.length + i) / files.length * 40));
+          setProgress(Math.round(50 + (i / videoFilesArr.length) * 40));
           
           try {
             const videoRes = await getVideoDuration(file);
@@ -252,22 +254,6 @@ export default function Home() {
           } catch (err) {
             console.error(`Failed to get video duration ${file.name}:`, err);
             setError(`获取视频 ${file.name} 时长失败`);
-          }
-        }
-        
-        // Then, analyze merged audio (only audio files)
-        if (audioFiles.length > 0) {
-          setProgress(50);
-          try {
-            const mergedResult = await analyzeMergedAudio(audioFiles, params, (p: number) => {
-              setProgress(50 + Math.round(p * 0.5));
-            });
-            
-            // Store merged result with a special key
-            setBatchResults(prev => new Map(prev).set('__merged__', mergedResult));
-          } catch (err) {
-            console.error('Merged analysis failed:', err);
-            setError('合并分析失败，建议使用更低比特率的 MP3 文件');
           }
         }
         
