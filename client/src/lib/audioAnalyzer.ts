@@ -27,6 +27,7 @@ export interface AudioAnalysisResult {
   sampleRate: number;
   fileName: string;
   fileSize: number;
+  fileType: 'audio';
 }
 
 export interface AnalysisParams {
@@ -195,6 +196,7 @@ async function analyzeAudioBuffer(
     sampleRate,
     fileName,
     fileSize,
+    fileType: 'audio',
   };
 }
 

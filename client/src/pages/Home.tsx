@@ -21,6 +21,7 @@ import {
   type AnalysisParams,
 } from "@/lib/audioAnalyzer";
 import { createShortenedAudio, downloadAudioBuffer } from "@/lib/audioTrimmer";
+import { getVideoDuration, isVideoFile, isAudioFile, type VideoAnalysisResult } from "@/lib/videoAnalyzer";
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
@@ -172,7 +173,9 @@ function UploadZone({
   const MAX_FILE_SIZE = 1.5 * 1024 * 1024 * 1024; // 1.5GB
 
   const checkFilesAndWarn = (files: File[]) => {
-    const audioFiles = files.filter((f) => f.type.startsWith("audio/"));
+    const audioFiles = files.filter((f) => isAudioFile(f));
+    const videoFiles = files.filter((f) => isVideoFile(f));
+    const allValidFiles = [...audioFiles, ...videoFiles];
     
     let totalSize = 0;
     let hasLargeFile = false;
@@ -192,8 +195,8 @@ function UploadZone({
       onWarning?.(null);
     }
     
-    if (audioFiles.length > 0) {
-      onFiles(audioFiles);
+    if (allValidFiles.length > 0) {
+      onFiles(allValidFiles);
     }
   };
 
@@ -251,13 +254,13 @@ function UploadZone({
         className="text-xs"
         style={{ color: "#9B9B95" }}
       >
-        支持 MP3、WAV、M4A、OGG、FLAC 等格式
+        支持音频（MP3、WAV、M4A、OGG、FLAC）和视频（MP4、WebM、MKV）格式
       </p>
       <input
         ref={inputRef}
         type="file"
         multiple
-        accept="audio/*"
+        accept="audio/*,video/*"
         onChange={(e) => {
           const files = Array.from(e.target.files || []);
           checkFilesAndWarn(files);
@@ -275,12 +278,13 @@ export default function Home() {
   const [params, setParams] = useState<AnalysisParams>(DEFAULT_PARAMS);
   const [result, setResult] = useState<AudioAnalysisResult | null>(null);
   const [batchMode, setBatchMode] = useState(false);
-  const [batchResults, setBatchResults] = useState<Map<string, AudioAnalysisResult>>(new Map());
+  const [batchResults, setBatchResults] = useState<Map<string, AudioAnalysisResult | VideoAnalysisResult>>(new Map());
   const [analyzing, setAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [shortenedSilenceDuration, setShortenedSilenceDuration] = useState(0.5);
+  const [videoResults, setVideoResults] = useState<Map<string, VideoAnalysisResult>>(new Map());
   const [exporting, setExporting] = useState(false);
 
   const effectiveCountUp = useCountUpTime(result?.effectiveDuration || 0);
@@ -313,15 +317,20 @@ export default function Home() {
       
       setBatchMode(true);
       setBatchResults(new Map());
+      setVideoResults(new Map());
       setError(null);
       setResult(null);
       setAnalyzing(true);
       setProgress(0);
       
       try {
-        // First, analyze individual files
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
+        // Separate audio and video files
+        const audioFiles = files.filter(f => isAudioFile(f));
+        const videoFilesArr = files.filter(f => isVideoFile(f));
+        
+        // Process audio files
+        for (let i = 0; i < audioFiles.length; i++) {
+          const file = audioFiles[i];
           setProgress(Math.round((i / files.length) * 40));
           
           try {
@@ -333,23 +342,40 @@ export default function Home() {
           }
         }
         
-        // Then, analyze merged audio
-        setProgress(50);
-        try {
-          const mergedResult = await analyzeMergedAudio(files, params, (p: number) => {
-            setProgress(50 + Math.round(p * 0.5));
-          });
+        // Process video files (just get duration)
+        for (let i = 0; i < videoFilesArr.length; i++) {
+          const file = videoFilesArr[i];
+          setProgress(Math.round((audioFiles.length + i) / files.length * 40));
           
-          // Store merged result with a special key
-          setBatchResults(prev => new Map(prev).set('__merged__', mergedResult));
-        } catch (err) {
-          console.error('Merged analysis failed:', err);
-          setError('合并分析失败，建议使用更低比特率的 MP3 文件');
+          try {
+            const videoRes = await getVideoDuration(file);
+            setBatchResults(prev => new Map(prev).set(file.name, videoRes));
+            setVideoResults(prev => new Map(prev).set(file.name, videoRes));
+          } catch (err) {
+            console.error(`Failed to get video duration ${file.name}:`, err);
+            setError(`获取视频 ${file.name} 时长失败`);
+          }
+        }
+        
+        // Then, analyze merged audio (only audio files)
+        if (audioFiles.length > 0) {
+          setProgress(50);
+          try {
+            const mergedResult = await analyzeMergedAudio(audioFiles, params, (p: number) => {
+              setProgress(50 + Math.round(p * 0.5));
+            });
+            
+            // Store merged result with a special key
+            setBatchResults(prev => new Map(prev).set('__merged__', mergedResult));
+          } catch (err) {
+            console.error('Merged analysis failed:', err);
+            setError('合并分析失败，建议使用更低比特率的 MP3 文件');
+          }
         }
         
         setProgress(100);
       } catch (err) {
-        setError('批量分析失败，请检查音频文件。');
+        setError('批量分析失败，请检查文件。');
         console.error('Batch analysis failed:', err);
       } finally {
         setAnalyzing(false);
@@ -607,10 +633,21 @@ export default function Home() {
                             return (
                               <tr key={name} style={{ borderTop: "1px solid #E8E8E4" }}>
                                 <td className="px-4 py-3" style={{ color: "#1A1A1A" }}>{name}</td>
-                                <td className="px-4 py-3 text-right" style={{ color: "#2D4EF5", fontWeight: "500" }}>{formatTime(res.effectiveDuration)}</td>
-                                <td className="px-4 py-3 text-right" style={{ color: "#9B9B95" }}>{formatTime(res.silenceDuration)}</td>
-                                <td className="px-4 py-3 text-right" style={{ color: "#9B9B95" }}>{formatTime(res.totalDuration)}</td>
-                                <td className="px-4 py-3 text-right" style={{ color: "#9B9B95" }}>{(res.effectiveRatio * 100).toFixed(1)}%</td>
+                                {res.fileType === 'video' ? (
+                                  <>
+                                    <td className="px-4 py-3 text-right" style={{ color: "#9B9B95" }}>-</td>
+                                    <td className="px-4 py-3 text-right" style={{ color: "#9B9B95" }}>-</td>
+                                    <td className="px-4 py-3 text-right" style={{ color: "#2D4EF5", fontWeight: "500" }}>{formatTime(res.totalDuration)}</td>
+                                    <td className="px-4 py-3 text-right" style={{ color: "#9B9B95" }}>-</td>
+                                  </>
+                                ) : (
+                                  <>
+                                    <td className="px-4 py-3 text-right" style={{ color: "#2D4EF5", fontWeight: "500" }}>{formatTime((res as AudioAnalysisResult).effectiveDuration)}</td>
+                                    <td className="px-4 py-3 text-right" style={{ color: "#9B9B95" }}>{formatTime((res as AudioAnalysisResult).silenceDuration)}</td>
+                                    <td className="px-4 py-3 text-right" style={{ color: "#9B9B95" }}>{formatTime(res.totalDuration)}</td>
+                                    <td className="px-4 py-3 text-right" style={{ color: "#9B9B95" }}>{((res as AudioAnalysisResult).effectiveRatio * 100).toFixed(1)}%</td>
+                                  </>
+                                )}
                               </tr>
                             );
                           })}
@@ -621,6 +658,13 @@ export default function Home() {
                     {/* Merged result summary */}
                     {batchResults.has('__merged__') && (() => {
                       const mergedRes = batchResults.get('__merged__')!;
+                      
+                      // Type guard to ensure it's an audio result
+                      if (mergedRes.fileType === 'video') {
+                        return null;
+                      }
+                      
+                      const audioRes = mergedRes as AudioAnalysisResult;
                       
                       const formatTime = (seconds: number) => {
                         const hours = Math.floor(seconds / 3600);
@@ -633,23 +677,23 @@ export default function Home() {
                         return parts.join(' ');
                       };
                       
-                      const exportedDuration = mergedRes.effectiveDuration + (mergedRes.silenceSegments.length * shortenedSilenceDuration);
+                      const exportedDuration = audioRes.effectiveDuration + (audioRes.silenceSegments.length * shortenedSilenceDuration);
                       
                       return (
                         <div className="mt-4 p-4 rounded-lg" style={{ background: "#F4F4F2" }}>
                           <div className="grid grid-cols-5 gap-4 text-xs font-semibold mb-6">
                             <div style={{ color: "#9B9B95" }}>合并总计</div>
-                            <div className="text-right" style={{ color: "#2D4EF5" }}>{formatTime(mergedRes.effectiveDuration)}</div>
-                            <div className="text-right" style={{ color: "#9B9B95" }}>{formatTime(mergedRes.silenceDuration)}</div>
-                            <div className="text-right" style={{ color: "#9B9B95" }}>{formatTime(mergedRes.totalDuration)}</div>
-                            <div className="text-right" style={{ color: "#9B9B95" }}>{(mergedRes.effectiveRatio * 100).toFixed(1)}%</div>
+                            <div className="text-right" style={{ color: "#2D4EF5" }}>{formatTime(audioRes.effectiveDuration)}</div>
+                            <div className="text-right" style={{ color: "#9B9B95" }}>{formatTime(audioRes.silenceDuration)}</div>
+                            <div className="text-right" style={{ color: "#9B9B95" }}>{formatTime(audioRes.totalDuration)}</div>
+                            <div className="text-right" style={{ color: "#9B9B95" }}>{(audioRes.effectiveRatio * 100).toFixed(1)}%</div>
                           </div>
                           
                           {/* Export duration preview */}
                           <div className="pt-4 border-t" style={{ borderColor: "#E8E8E4" }}>
                             <div className="flex justify-between items-center mb-3">
                               <span className="text-xs font-medium tracking-wide uppercase" style={{ color: "#9B9B95" }}>合并后导出时长</span>
-                              <span className="text-xs" style={{ color: "#9B9B95" }}>缩短参数: {shortenedSilenceDuration.toFixed(3)}s × {mergedRes.silenceSegments.length} 段</span>
+                              <span className="text-xs" style={{ color: "#9B9B95" }}>缩短参数: {shortenedSilenceDuration.toFixed(3)}s × {audioRes.silenceSegments.length} 段</span>
                             </div>
                             <div className="font-bold leading-none" style={{
                               fontFamily: "'Playfair Display', serif",
