@@ -437,7 +437,7 @@ export default function Home() {
             </Card>
 
             {/* Shorten Silence Controls */}
-            {result && (
+            {(result || (batchMode && batchResults.has('__merged__'))) && (
               <Card className="p-6 border-0" style={{ background: "#FFFFFF" }}>
                 <h3 className="text-sm font-semibold mb-4" style={{ color: "#1A1A1A" }}>
                   缩短静音
@@ -510,10 +510,21 @@ export default function Home() {
                         letterSpacing: "-0.02em",
                       }}
                     >
-                      {formatTime(
-                        result.effectiveDuration +
-                          result.silenceSegments.length * shortenedSilenceDuration
-                      )}
+                      {(() => {
+                        if (result) {
+                          return formatTime(
+                            result.effectiveDuration +
+                              result.silenceSegments.length * shortenedSilenceDuration
+                          );
+                        } else if (batchMode && batchResults.has('__merged__')) {
+                          const mergedRes = batchResults.get('__merged__')! as AudioAnalysisResult;
+                          return formatTime(
+                            mergedRes.effectiveDuration +
+                              mergedRes.silenceSegments.length * shortenedSilenceDuration
+                          );
+                        }
+                        return '0s';
+                      })()}
                     </div>
                   </div>
                 </div>
