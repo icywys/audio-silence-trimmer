@@ -260,32 +260,12 @@ export async function analyzeMergedAudio(
   const mergedBuffer = audioContext.createBuffer(1, totalSamples, sampleRate);
   const mergedData = mergedBuffer.getChannelData(0);
 
-  // Boundary smoothing: remove potential artifacts at file junctions
-  const boundaryFadeMs = 15; // 15ms fade at boundaries (reduced to minimize silence detection variance)
-  const boundaryFadeSamples = Math.floor((boundaryFadeMs / 1000) * sampleRate);
-
+  // Direct concatenation without boundary processing to minimize silence detection variance
   let offset = 0;
   for (let i = 0; i < audioBuffers.length; i++) {
     const buffer = audioBuffers[i];
     const channelData = buffer.getChannelData(0);
-    
-    // For files after the first, apply fade-in at the start
-    if (i > 0) {
-      const fadeInStart = offset;
-      const fadeInEnd = Math.min(offset + boundaryFadeSamples, offset + channelData.length);
-      for (let j = fadeInStart; j < fadeInEnd; j++) {
-        const fadeRatio = (j - fadeInStart) / (fadeInEnd - fadeInStart);
-        mergedData[j] = channelData[j - offset] * fadeRatio;
-      }
-      // Copy remaining data
-      for (let j = fadeInEnd; j < offset + channelData.length; j++) {
-        mergedData[j] = channelData[j - offset];
-      }
-    } else {
-      // First file: copy as-is
-      mergedData.set(channelData, offset);
-    }
-    
+    mergedData.set(channelData, offset);
     offset += buffer.length;
   }
 
