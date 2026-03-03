@@ -579,7 +579,7 @@ export default function Home() {
                 <Card className="p-6 border-0" style={{ background: "#FFFFFF" }}>
                   <div>
                     <h3 className="text-sm font-semibold mb-4" style={{ color: "#1A1A1A" }}>
-                      批量分析结果 ({batchResults.size - 1})
+                      批量分析结果 ({Array.from(batchResults.keys()).filter(k => k !== '__merged__').length})
                     </h3>
                     <div className="overflow-x-auto rounded-lg border" style={{ borderColor: "#E8E8E4" }}>
                       <table className="w-full text-xs">
