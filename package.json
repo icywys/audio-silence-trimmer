@@ -11,8 +11,8 @@
     "check": "tsc --noEmit",
     "format": "prettier --write .",
     "electron-dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "electron-build": "vite build && esbuild electron/main.ts electron/preload.ts --platform=node --packages=external --bundle --format=esm --outdir=dist/electron",
-    "electron-pack": "pnpm electron-build && electron-builder"
+    "electron-build": "vite build && esbuild electron/main.ts electron/preload.ts --platform=node --packages=external --bundle --format=esm --outdir=dist/electron --define:__dirname='process.cwd( )'",
+    "electron-pack": "pnpm electron-build && npx electron-builder --publish never"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -71,7 +71,7 @@
   "main": "dist/electron/main.js",
   "homepage": "./",
   "build": {
-    "appId": "com.audiosilencetrimmer.app",
+    "appId": "com.colonaudition.app",
     "productName": "colon creative audition",
     "files": [
       "dist/**/*",
