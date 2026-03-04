@@ -1,0 +1,43 @@
+appId: com.audiosilencetrimmer.app
+productName: Audio Silence Trimmer
+directories:
+  buildResources: assets
+  output: release
+files:
+  - dist/**/*
+  - node_modules/**/*
+  - package.json
+
+mac:
+  target:
+    - dmg
+    - zip
+  category: public.app-category.utilities
+  icon: assets/icon.png
+  artifactName: ${productName}-${version}.${ext}
+  entitlements: null
+  entitlementsInherit: null
+  
+dmg:
+  contents:
+    - x: 110
+      y: 150
+      type: file
+    - x: 240
+      y: 150
+      type: link
+      path: /Applications
+  window:
+    x: 400
+    y: 100
+    width: 500
+    height: 350
+  iconSize: 128
+  contents:
+    - x: 110
+      y: 150
+      type: file
+    - x: 240
+      y: 150
+      type: link
+      path: /Applications
