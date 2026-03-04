@@ -41,7 +41,8 @@ jobs:
         run: pnpm install
       
       - name: Build Mac app
-        run: pnpm electron-pack
+        run: pnpm electron-build && electron-builder --publish never
+
       
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
