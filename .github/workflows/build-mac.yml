@@ -42,18 +42,17 @@ jobs:
       
       - name: Build Mac app
         run: pnpm electron-build && npx electron-builder --publish never
-
       
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
           name: Audio-Silence-Trimmer-DMG
-          path: release/*.dmg
+          path: dist/*.dmg
           retention-days: 30
       
       - name: Upload ZIP artifact
         uses: actions/upload-artifact@v4
         with:
           name: Audio-Silence-Trimmer-ZIP
-          path: release/*.zip
+          path: dist/*.zip
           retention-days: 30
