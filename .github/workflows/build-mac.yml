@@ -41,7 +41,7 @@ jobs:
         run: pnpm install
       
       - name: Build Mac app
-        run: pnpm electron-build && electron-builder --publish never
+        run: pnpm electron-build && npx electron-builder --publish never
 
       
       - name: Upload DMG artifact
