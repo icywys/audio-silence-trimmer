@@ -72,7 +72,7 @@
   "homepage": "./",
   "build": {
     "appId": "com.audiosilencetrimmer.app",
-    "productName": "Audio Silence Trimmer",
+    "productName": "colon creative audition",
     "files": [
       "dist/**/*",
       "node_modules/**/*"
