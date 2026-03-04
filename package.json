@@ -11,7 +11,7 @@
     "check": "tsc --noEmit",
     "format": "prettier --write .",
     "electron-dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "electron-build": "vite build && esbuild electron/main.ts electron/preload.ts --platform=node --packages=external --bundle --format=esm --outdir=dist/electron --define:__dirname='process.cwd( )'",
+    "electron-build": "vite build && esbuild electron/main.ts electron/preload.ts --platform=node --packages=external --bundle --format=esm --outdir=dist/electron --define:__dirname=\\\"process.cwd( )\\\"",
     "electron-pack": "pnpm electron-build && npx electron-builder --publish never"
   },
   "dependencies": {
