@@ -3,30 +3,36 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import isDev from 'electron-is-dev';
 
+// 定义 __dirname 和 __filename
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow() {
+  // 构建资源路径
+  const iconPath = path.join(__dirname, '../assets/icon.png');
+  const preloadPath = path.join(__dirname, 'preload.js');
+  const indexPath = path.join(__dirname, '../public/index.html');
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1000,
     minHeight: 700,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: preloadPath,
       nodeIntegration: false,
       contextIsolation: true,
     },
-    icon: path.join(__dirname, '../assets/icon.png'),
+    icon: iconPath,
   });
 
   const startUrl = isDev
     ? 'http://localhost:5173'
-    : `file://${path.join(__dirname, '../public/index.html' )}`;
+    : `file://${indexPath}`;
 
-  mainWindow.loadURL(startUrl);
+  mainWindow.loadURL(startUrl );
 
   if (isDev) {
     mainWindow.webContents.openDevTools();
