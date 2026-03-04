@@ -1,6 +1,10 @@
 import { app, BrowserWindow, Menu } from 'electron';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import isDev from 'electron-is-dev';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -11,7 +15,7 @@ function createWindow() {
     minWidth: 1000,
     minHeight: 700,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.ts'),
+      preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
     },
@@ -20,7 +24,7 @@ function createWindow() {
 
   const startUrl = isDev
     ? 'http://localhost:5173'
-    : `file://${path.join(__dirname, '../dist/index.html')}`;
+    : `file://${path.join(__dirname, '../public/index.html' )}`;
 
   mainWindow.loadURL(startUrl);
 
@@ -50,7 +54,7 @@ app.on('activate', () => {
 // Create application menu
 const template: Electron.MenuItemConstructorOptions[] = [
   {
-    label: 'Audio Silence Trimmer',
+    label: 'colon creative audition',
     submenu: [
       { role: 'about' },
       { type: 'separator' },
