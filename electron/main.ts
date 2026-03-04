@@ -1,38 +1,39 @@
 import { app, BrowserWindow, Menu } from 'electron';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import isDev from 'electron-is-dev';
-
-// 定义 __dirname 和 __filename
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 let mainWindow: BrowserWindow | null = null;
 
-function createWindow() {
-  // 构建资源路径
-  const iconPath = path.join(__dirname, '../assets/icon.png');
-  const preloadPath = path.join(__dirname, 'preload.js');
-  const indexPath = path.join(__dirname, '../public/index.html');
+function getAssetPath(...paths: string[]): string {
+  // 在生产环境中，资源位于 app.asar 内
+  // 在开发环境中，资源位于项目根目录
+  const appPath = app.getAppPath();
+  return path.join(appPath, '..', ...paths);
+}
 
+function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1000,
     minHeight: 700,
     webPreferences: {
-      preload: preloadPath,
+      preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
     },
-    icon: iconPath,
+    icon: getAssetPath('assets/icon.png'),
   });
 
-  const startUrl = isDev
-    ? 'http://localhost:5173'
-    : `file://${indexPath}`;
+  let startUrl: string;
+  
+  if (isDev) {
+    startUrl = 'http://localhost:5173';
+  } else {
+    startUrl = `file://${path.join(app.getAppPath( ), 'public/index.html')}`;
+  }
 
-  mainWindow.loadURL(startUrl );
+  mainWindow.loadURL(startUrl);
 
   if (isDev) {
     mainWindow.webContents.openDevTools();
